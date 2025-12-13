@@ -1,5 +1,9 @@
-// src/components/Chat.jsx
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef
+} from "react";
 import { supabase } from "../supabaseClient";
 
 export default function Chat({ profile, patient, onClose }) {
@@ -7,11 +11,12 @@ export default function Chat({ profile, patient, onClose }) {
   const [allConversations, setAllConversations] = useState([]);
   const [activePatient, setActivePatient] = useState(patient || null);
   const [newChatMsg, setNewChatMsg] = useState("");
+  const [showList, setShowList] = useState(true);
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // ---------------- Fetch all conversations ----------------
+  /* ================= FETCH CONVERSATIONS ================= */
   const fetchConversations = useCallback(async () => {
     if (!profile) return;
 
@@ -25,9 +30,10 @@ export default function Chat({ profile, patient, onClose }) {
 
     const grouped = {};
     msgs.forEach((m) => {
-      const otherUser = m.sender_id === profile.id ? m.receiver_id : m.sender_id;
-      if (!grouped[otherUser]) grouped[otherUser] = [];
-      grouped[otherUser].push(m);
+      const other =
+        m.sender_id === profile.id ? m.receiver_id : m.sender_id;
+      if (!grouped[other]) grouped[other] = [];
+      grouped[other].push(m);
     });
 
     const convos = await Promise.all(
@@ -41,11 +47,13 @@ export default function Chat({ profile, patient, onClose }) {
         const list = grouped[uid];
         const last = list[0];
         const unread = list.filter(
-          (msg) => msg.receiver_id === profile.id && !msg.read_status
+          (msg) =>
+            msg.receiver_id === profile.id &&
+            !msg.read_status
         ).length;
 
         return {
-          user: user || { name: "Unknown" },
+          user: user || { id: uid, name: "Unknown" },
           last_message: last?.message || "",
           time: last?.created_at || "",
           unread_count: unread,
@@ -60,7 +68,7 @@ export default function Chat({ profile, patient, onClose }) {
     }
   }, [profile, activePatient]);
 
-  // ---------------- Fetch messages for a patient ----------------
+  /* ================= FETCH MESSAGES ================= */
   const fetchMessages = useCallback(
     async (patientParam) => {
       if (!profile || !patientParam) return;
@@ -71,7 +79,9 @@ export default function Chat({ profile, patient, onClose }) {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .or(`room_id.eq.${roomId1},room_id.eq.${roomId2}`)
+        .or(
+          `room_id.eq.${roomId1},room_id.eq.${roomId2}`
+        )
         .order("created_at", { ascending: true });
 
       if (error) return console.error(error);
@@ -79,13 +89,19 @@ export default function Chat({ profile, patient, onClose }) {
       setChatMessages(data || []);
 
       const unread = (data || []).filter(
-        (msg) => msg.receiver_id === profile.id && !msg.read_status
+        (msg) =>
+          msg.receiver_id === profile.id &&
+          !msg.read_status
       );
+
       if (unread.length > 0) {
         await supabase
           .from("notifications")
           .update({ read_status: true })
-          .in("id", unread.map((u) => u.id));
+          .in(
+            "id",
+            unread.map((u) => u.id)
+          );
       }
 
       fetchConversations();
@@ -93,16 +109,34 @@ export default function Chat({ profile, patient, onClose }) {
     [profile, fetchConversations]
   );
 
-  // ---------------- Effect: Update chat when activePatient changes ----------------
+  /* ================= EFFECTS ================= */
+
+  // Initial load
   useEffect(() => {
-    if (!activePatient) return;
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Handle patient passed from parent (mobile direct open)
+  useEffect(() => {
+    if (patient) {
+      setActivePatient(patient);
+      setShowList(false);
+    }
+  }, [patient]);
+
+  // Realtime updates
+  useEffect(() => {
+    if (!activePatient || !profile) return;
+
     fetchMessages(activePatient);
 
     const roomId1 = `room_staff${profile.id}_patient${activePatient.id}`;
     const roomId2 = `room_staff${activePatient.id}_patient${profile.id}`;
 
     const channel = supabase
-      .channel(`chat_staff${profile.id}_patient${activePatient.id}`)
+      .channel(
+        `chat_${profile.id}_${activePatient.id}`
+      )
       .on(
         "postgres_changes",
         {
@@ -115,28 +149,36 @@ export default function Chat({ profile, patient, onClose }) {
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () =>
+      supabase.removeChannel(channel);
   }, [activePatient, profile, fetchMessages]);
 
-  // ---------------- Auto-expand textarea ----------------
+  // Auto-expand textarea
   useEffect(() => {
     const ta = textareaRef.current;
-    if (ta) {
-      ta.style.height = "auto";
-      ta.style.height = ta.scrollHeight + "px";
-    }
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
   }, [newChatMsg]);
 
-  // ---------------- Auto-scroll ----------------
+  // Auto-scroll
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    chatEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   }, [chatMessages]);
 
-  // ---------------- Send new message ----------------
+  /* ================= SEND MESSAGE ================= */
   const sendChatMessage = async () => {
-    if (!newChatMsg.trim() || !activePatient || !profile) return;
+    if (
+      !newChatMsg.trim() ||
+      !activePatient ||
+      !profile
+    )
+      return;
 
     const roomId = `room_staff${profile.id}_patient${activePatient.id}`;
+
     const messageData = {
       message: newChatMsg.trim(),
       sender_id: profile.id,
@@ -148,103 +190,174 @@ export default function Chat({ profile, patient, onClose }) {
     setNewChatMsg("");
     setChatMessages((prev) => [
       ...prev,
-      { ...messageData, created_at: new Date().toISOString() },
+      {
+        ...messageData,
+        created_at: new Date().toISOString(),
+      },
     ]);
 
-    const { error } = await supabase.from("notifications").insert([messageData]);
-    if (error) console.error("Error sending message:", error);
+    const { error } = await supabase
+      .from("notifications")
+      .insert([messageData]);
+
+    if (error)
+      console.error(
+        "Error sending message:",
+        error
+      );
   };
 
   const formatTime = (ts) => {
     if (!ts) return "";
     const date = new Date(ts);
-    const now = new Date();
-    const isToday =
-      date.getDate() === now.getDate() &&
-      date.getMonth() === now.getMonth() &&
-      date.getFullYear() === now.getFullYear();
-
-    if (isToday) {
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    } else {
-      return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    }
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  if (!profile || !activePatient) return <p className="p-4 text-center">Loading chat...</p>;
+  if (!profile || !activePatient) {
+    return (
+      <div className="p-4 text-center">
+        Loading chat…
+      </div>
+    );
+  }
 
+  /* ================= RENDER ================= */
   return (
-    <div className="flex h-full bg-white/30 dark:bg-gray-800/40 backdrop-blur-md rounded-xl overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white/40 dark:bg-gray-900/40 backdrop-blur-md p-3 flex flex-col">
+    <div className="flex h-full w-full bg-white/30 dark:bg-gray-800/40 backdrop-blur-md rounded-xl overflow-hidden">
+
+      {/* CONVERSATION LIST */}
+      <aside
+        className={`
+          w-full md:w-64
+          ${showList ? "flex" : "hidden"}
+          md:flex
+          bg-white/40 dark:bg-gray-900/40
+          backdrop-blur-md p-3 flex-col
+        `}
+      >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Messages</h3>
-          <button onClick={onClose} className="text-gray-700 dark:text-gray-200 text-xl">×</button>
+          <h3 className="font-semibold">
+            Messages
+          </h3>
+          <button
+            onClick={onClose}
+            className="md:hidden text-xl"
+          >
+            ×
+          </button>
         </div>
+
         <div className="flex-1 overflow-y-auto space-y-2">
           {allConversations.map((c) => (
             <div
               key={c.user.id}
-              onClick={() => setActivePatient(c.user)}
+              onClick={() => {
+                setActivePatient(c.user);
+                setShowList(false);
+              }}
               className={`flex items-center p-2 rounded-lg cursor-pointer ${
-                activePatient?.id === c.user.id ? "bg-blue-400/40 dark:bg-blue-600/50" : "hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
+                activePatient.id === c.user.id
+                  ? "bg-blue-400/40"
+                  : "hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
               }`}
             >
-              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
                 {c.user.name[0]}
               </div>
+
               <div className="ml-2 flex-1">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{c.user.name}</h4>
-                <p className="text-xs text-gray-700 dark:text-gray-300 truncate">{c.last_message}</p>
+                <p className="text-sm font-semibold truncate">
+                  {c.user.name}
+                </p>
+                <p className="text-xs truncate opacity-70">
+                  {c.last_message}
+                </p>
               </div>
+
               {c.unread_count > 0 && (
-                <span className="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{c.unread_count}</span>
+                <span className="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {c.unread_count}
+                </span>
               )}
             </div>
           ))}
         </div>
       </aside>
 
-      {/* Chat Main */}
-      <main className="flex-1 flex flex-col">
-        <div className="flex items-center p-3 border-b border-gray-200/50 dark:border-gray-700/50">
-          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+      {/* CHAT PANEL */}
+      <main
+        className={`flex-1 flex flex-col ${
+          showList ? "hidden md:flex" : "flex"
+        }`}
+      >
+        <div className="flex items-center p-3 border-b">
+          <button
+            onClick={() => setShowList(true)}
+            className="md:hidden mr-2 text-xl"
+          >
+            ←
+          </button>
+
+          <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
             {activePatient.name[0]}
           </div>
-          <h3 className="ml-2 font-semibold text-gray-900 dark:text-gray-100">{activePatient.name}</h3>
+
+          <h3 className="ml-2 font-semibold">
+            {activePatient.name}
+          </h3>
         </div>
 
         <div className="flex-1 p-3 overflow-y-auto space-y-2">
-          {chatMessages.map((msg) => {
-            const mine = msg.sender_id === profile.id;
+          {chatMessages.map((msg, i) => {
+            const mine =
+              msg.sender_id === profile.id;
             return (
-              <div key={msg.id || Math.random()} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <div className={`px-4 py-2 rounded-2xl max-w-xs break-words text-sm shadow-md ${
+              <div
+                key={msg.id || i}
+                className={`flex ${
                   mine
-                    ? "bg-green-400 text-white"
-                    : "bg-white/50 dark:bg-gray-700/50 text-gray-900 dark:text-gray-100"
-                }`}>
-                  <p className="whitespace-pre-wrap">{msg.message}</p>
-                  <span className="text-xs block mt-1 text-right text-gray-700 dark:text-gray-200">
+                    ? "justify-end"
+                    : "justify-start"
+                }`}
+              >
+                <div
+                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${
+                    mine
+                      ? "bg-green-500 text-white"
+                      : "bg-white/50 dark:bg-gray-700/50"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">
+                    {msg.message}
+                  </p>
+                  <span className="block text-xs mt-1 opacity-70 text-right">
                     {formatTime(msg.created_at)}
                   </span>
                 </div>
               </div>
             );
           })}
-          <div ref={chatEndRef}></div>
+          <div ref={chatEndRef} />
         </div>
 
-        <div className="flex gap-2 p-3 border-t border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex gap-2 p-3 border-t">
           <textarea
             ref={textareaRef}
             rows={1}
             value={newChatMsg}
-            onChange={(e) => setNewChatMsg(e.target.value)}
+            onChange={(e) =>
+              setNewChatMsg(e.target.value)
+            }
             placeholder="Type a message..."
-            className="flex-1 p-3 rounded-xl border border-gray-200/50 dark:border-gray-600/50 bg-white/20 dark:bg-gray-700/40 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none backdrop-blur-sm"
+            className="flex-1 p-3 rounded-xl resize-none border focus:outline-none focus:ring-2 focus:ring-blue-400"
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (
+                e.key === "Enter" &&
+                !e.shiftKey
+              ) {
                 e.preventDefault();
                 sendChatMessage();
               }
@@ -252,7 +365,7 @@ export default function Chat({ profile, patient, onClose }) {
           />
           <button
             onClick={sendChatMessage}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl shadow-md transition"
+            className="bg-blue-500 text-white px-4 py-2 rounded-xl"
           >
             Send
           </button>

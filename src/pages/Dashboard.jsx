@@ -5,6 +5,7 @@ import CustomerDashboard from "./CustomerDashboard";
 import RiderDashboard from "./RiderDashboard";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
+import MobileNav from "../components/MobileNav";
 
 export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
   const [profile, setProfile] = useState(null);
@@ -12,6 +13,7 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
   const [selectedPage, setSelectedPage] = useState("dashboard");
   const [riderLogoutHandler, setRiderLogoutHandler] = useState(() => () => {});
 
+  // FETCH PROFILE
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -35,6 +37,7 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
     fetchProfile();
   }, [onLogout]);
 
+  // CENTRAL LOGOUT HANDLER
   const handleLogout = async (option) => {
     if (profile?.role?.toLowerCase() === "rider") {
       return riderLogoutHandler(option);
@@ -44,33 +47,44 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
     onLogout();
   };
 
-  if (loadingProfile) return (
-    <div className="flex items-center justify-center h-screen text-gray-700 dark:text-gray-200">
-      Loading profile…
-    </div>
-  );
+  if (loadingProfile) {
+    return (
+      <div className="flex items-center justify-center h-screen text-gray-700 dark:text-gray-200">
+        Loading profile…
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
 
-      {/* Only one Header */}
-      <Header
-        user={profile}
-        onLogout={handleLogout}
-        darkMode={darkMode}
-        toggleDarkMode={toggleDarkMode}
+      {/* DESKTOP SIDEBAR */}
+      <Sidebar
+        role={profile.role}
+        selectedPage={selectedPage}
+        onSelectPage={setSelectedPage}
       />
 
-      <div className="flex flex-1">
-        {/* Sidebar */}
-        <Sidebar
+      {/* MAIN COLUMN */}
+      <div className="flex flex-col flex-1 min-w-0">
+
+        {/* HEADER (ALWAYS VISIBLE) */}
+        <Header
+          user={profile}
+          onLogout={handleLogout}
+          darkMode={darkMode}
+          toggleDarkMode={toggleDarkMode}
+        />
+
+        {/* MOBILE NAV (ONLY ON SMALL SCREENS) */}
+        <MobileNav
           role={profile.role}
           selectedPage={selectedPage}
           onSelectPage={setSelectedPage}
         />
 
-        {/* Main content */}
-        <div className="flex-1 p-4 overflow-auto">
+        {/* PAGE CONTENT */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {profile.role === "Customer" && (
             <CustomerDashboard selectedPage={selectedPage} />
           )}
@@ -78,10 +92,10 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
           {profile.role === "Rider" && (
             <RiderDashboard
               selectedPage={selectedPage}
-              onHeaderLogout={setRiderLogoutHandler} // Pass logout handler to header
+              onHeaderLogout={setRiderLogoutHandler}
             />
           )}
-        </div>
+        </main>
       </div>
     </div>
   );
