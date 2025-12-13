@@ -1,0 +1,21 @@
+my-modern-app/
+├─ src/
+│  ├─ components/
+│  │  ├─ Sidebar.jsx
+│  │  ├─ Header.jsx
+│  │  ├─ ChatBox.jsx
+│  ├─ pages/
+│  │  ├─ CustomerDashboard.jsx
+│  │  ├─ Dashboard.jsx
+│  │  ├─ Landing.jsx
+│  │  ├─ Login.jsx
+│  │  ├─ Orders.jsx
+│  │  ├─ Register.jsx
+│  │  ├─ RiderDashboard.jsx
+│  │  ├─ Orders.jsx
+│  ├─ App.jsx
+│  ├─ main.jsx
+│  ├─ index.css
+│  ├─ supabaseClient.js
+├─ tailwind.config.cjs
+└─ vite.config.js
