@@ -1,11 +1,13 @@
 my-modern-app/
 ├─ src/
+│  ├─ assets/
+│  │  ├─ react.svg
 │  ├─ components/
-│  │  ├─ Sidebar.jsx
-│  │  ├─ Header.jsx
 │  │  ├─ Chat.jsx
 │  │  ├─ ElectricBorder.jsx
+│  │  ├─ Header.jsx
 │  │  ├─ MobileNav.jsx
+│  │  ├─ Sidebar.jsx
 │  ├─ pages/
 │  │  ├─ CustomerDashboard.jsx
 │  │  ├─ Dashboard.jsx
@@ -16,9 +18,17 @@ my-modern-app/
 │  │  ├─ RiderDashboard.jsx
 │  │  ├─ Orders.jsx
 │  ├─ App.jsx
+│  ├─ App.css
 │  ├─ main.jsx
 │  ├─ index.css
 │  ├─ supabaseClient.js
+├─ .env
+├─ .gitignore
+├─ eslint.config.js
+├─ index.html
+├─ package-lock.json
+├─ package.json
+├─ postcss.config.cjs
 ├─ tailwind.config.cjs
 └─ vite.config.js
 └─ vercel.json

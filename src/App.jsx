@@ -15,13 +15,15 @@ export default function App() {
   const [disclaimerAgreed, setDisclaimerAgreed] = useState(false);
   const [rememberDisclaimer, setRememberDisclaimer] = useState(false);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
+  const [showAppPrompt, setShowAppPrompt] = useState(false);
+  const [latestApkUrl, setLatestApkUrl] = useState("");
+  const [apkVersion, setApkVersion] = useState("");
 
   const toggleDarkMode = () => setDarkMode((d) => !d);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    // Navigate to landing page after logout
     window.location.href = "/";
   };
 
@@ -30,6 +32,7 @@ export default function App() {
     document.documentElement.style.transition = "background 0.5s, color 0.5s";
   }, [darkMode]);
 
+  // Check Supabase session
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
@@ -46,10 +49,38 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Disclaimer check
   useEffect(() => {
     const remembered = localStorage.getItem("disclaimerAgreed") === "true";
     if (remembered) setDisclaimerAgreed(true);
   }, []);
+
+  // Check for APK updates (mobile only)
+  useEffect(() => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile) return; // Skip if not mobile
+
+    const checkApk = async () => {
+      try {
+        const url = "https://ooyuqgbmgqhvpyoonric.supabase.co/storage/v1/object/public/app-updates/FoodPapaDan.apk";
+        setLatestApkUrl(url);
+
+        const latestVersion = "1.0.1"; // Replace with dynamic fetch if desired
+        setApkVersion(latestVersion);
+
+        const installedVersion = localStorage.getItem("installedApkVersion");
+
+        if (!installedVersion || installedVersion !== latestVersion) {
+          setShowAppPrompt(true);
+        }
+      } catch (err) {
+        console.error("Failed to fetch APK info:", err);
+      }
+    };
+
+    checkApk();
+  }, []);
+
 
   if (loading)
     return (
@@ -113,7 +144,42 @@ export default function App() {
     </div>
   );
 
+  const AppPromptModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-white/20 dark:border-gray-700 w-full max-w-md p-6 flex flex-col animate-fadeIn">
+        <h2 className="text-2xl font-bold mb-4">📲 FoodPapaDan App</h2>
+        <p className="mb-4 text-sm md:text-base">
+          {localStorage.getItem("installedApkVersion")
+            ? `A new version (${apkVersion}) is available. Would you like to update the Android app on your device?`
+            : "Would you like to try the FoodPapaDan Android app for a smoother mobile experience?"}
+        </p>
+
+        <div className="flex justify-between mt-auto">
+          <a
+            href={latestApkUrl}
+            download
+            className="py-2 px-4 rounded text-white font-semibold bg-gradient-to-r from-green-400 to-blue-500 hover:from-blue-500 hover:to-green-400 transition-all duration-300"
+            onClick={() => {
+              localStorage.setItem("installedApkVersion", apkVersion);
+              setShowAppPrompt(false);
+            }}
+          >
+            {localStorage.getItem("installedApkVersion") ? "Update App" : "Download App"}
+          </a>
+
+          <button
+            onClick={() => setShowAppPrompt(false)}
+            className="py-2 px-4 rounded text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (!disclaimerAgreed) return <DisclaimerModal />;
+  if (showAppPrompt) return <AppPromptModal />;
 
   const AppLayout = ({ children, showFloatingFoods }) => (
     <div className="relative min-h-screen flex flex-col bg-gradient-to-br from-yellow-50 via-red-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 transition-all duration-700 overflow-hidden">

@@ -1,13 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/dan.svg" />
-  <title>FoodPapaDan</title>
-</head>
-  <body>
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- Mobile + Android WebView safe -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Android status bar color -->
+    <meta name="theme-color" content="#f97316" />
+
+    <!-- App identity -->
+    <link rel="icon" type="image/svg+xml" href="/dan.svg" />
+    <title>FoodPapaDan</title>
+
+    <!-- Prevent 300ms tap delay on mobile -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    <!-- Optional: better font rendering -->
+    <meta name="color-scheme" content="light dark" />
+  </head>
+
+  <body class="bg-white dark:bg-gray-900">
     <div id="root"></div>
+
+    <!-- Vite entry -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

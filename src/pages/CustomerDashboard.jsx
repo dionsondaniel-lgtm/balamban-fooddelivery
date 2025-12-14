@@ -413,9 +413,17 @@ export default function CustomerDashboard({
               <button type="button" onClick={addItem} className="text-blue-500 font-semibold">
                 + Add Item
               </button>
-              <button type="button"
-                onClick={() => window.open("https://www.google.com/search?q=balamban+food+sales", "_blank")}
-                className="text-green-500 font-semibold">
+              <button
+                type="button"
+                onClick={() =>
+                  window.open(
+                    "https://www.google.com/search?q=Balamban+food+sales+menu+opening+hours+contact",
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+                className="text-green-500 font-semibold"
+              >
                 Search Online
               </button>
             </div>
