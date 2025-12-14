@@ -7,22 +7,23 @@ npm run build
 
 2. RUN BELOW TO UPDATE FINAL
 
-#!/bin/bash
-
 # Stage all changes
 git add .
 
 # Ask for commit message
-read -p "Commit message: " msg
+$msg = Read-Host "Commit message"
 
-if [ -z "$msg" ]; then
-    echo "Commit aborted: empty message"
+if (-not $msg) {
+    Write-Host "Commit aborted: empty message"
     exit 1
-fi
+}
 
 git commit -m "$msg"
 git push origin $(git rev-parse --abbrev-ref HEAD)
+
+# Build the Vite app
 npm run build
+
 
 
 ==================================================================
