@@ -23,13 +23,11 @@ export default function App() {
     setUser(null);
   };
 
-  // Dark mode effect
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
     document.documentElement.style.transition = "background 0.5s, color 0.5s";
   }, [darkMode]);
 
-  // Supabase session & auth listener
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
@@ -47,7 +45,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Disclaimer remembered
   useEffect(() => {
     const remembered = localStorage.getItem("disclaimerAgreed") === "true";
     if (remembered) setDisclaimerAgreed(true);
@@ -60,7 +57,6 @@ export default function App() {
       </div>
     );
 
-  // Disclaimer Modal
   const DisclaimerModal = ({ onClose }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-white/20 dark:border-gray-700 w-full max-w-md h-[90vh] overflow-y-auto p-6 flex flex-col animate-fadeIn">
@@ -118,9 +114,28 @@ export default function App() {
 
   if (!disclaimerAgreed) return <DisclaimerModal />;
 
-  const AppLayout = ({ children }) => (
+  const AppLayout = ({ children, showFloatingFoods }) => (
     <div className="relative min-h-screen flex flex-col bg-gradient-to-br from-yellow-50 via-red-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 transition-all duration-700 overflow-hidden">
       <ElectricBorder>{children}</ElectricBorder>
+
+      {showFloatingFoods && (
+        <div className="absolute inset-0 pointer-events-none">
+          {["🍔", "🍕", "🍟", "🌭", "🥤", "🍩", "🍰", "🥪"].map((emoji, idx) => (
+            <span
+              key={idx}
+              className={`absolute text-2xl md:text-3xl animate-float-${idx % 4}`}
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 5}s`,
+              }}
+            >
+              {emoji}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="w-full py-4 text-center mt-auto z-10">
         <button
           onClick={() => setShowDisclaimerModal(true)}
@@ -129,11 +144,11 @@ export default function App() {
           View Disclaimer
         </button>
       </div>
+
       {showDisclaimerModal && <DisclaimerModal onClose={() => setShowDisclaimerModal(false)} />}
     </div>
   );
 
-  // Routes component with navigation
   const AppRoutes = () => {
     const navigate = useNavigate();
 
@@ -141,31 +156,69 @@ export default function App() {
       <Routes>
         <Route
           path="/"
-          element={<Landing onShowLogin={() => navigate("/login")} onShowRegister={() => navigate("/register")} />}
+          element={
+            <AppLayout showFloatingFoods={true}>
+              <Landing
+                onShowLogin={() => navigate("/login")}
+                onShowRegister={() => navigate("/register")}
+              />
+            </AppLayout>
+          }
         />
         <Route
           path="/login"
-          element={!user ? <Login onLogin={(u) => { setUser(u); navigate("/dashboard"); }} switchToRegister={() => navigate("/register")} /> : <Navigate to="/dashboard" />}
+          element={
+            !user ? (
+              <AppLayout>
+                <Login
+                  onLogin={(u) => { setUser(u); navigate("/dashboard"); }}
+                  switchToRegister={() => navigate("/register")}
+                />
+              </AppLayout>
+            ) : (
+              <Navigate to="/dashboard" />
+            )
+          }
         />
         <Route
           path="/register"
-          element={!user ? <Register onLogin={(u) => { setUser(u); navigate("/dashboard"); }} switchToLogin={() => navigate("/login")} /> : <Navigate to="/dashboard" />}
+          element={
+            !user ? (
+              <AppLayout>
+                <Register
+                  onLogin={(u) => { setUser(u); navigate("/dashboard"); }}
+                  switchToLogin={() => navigate("/login")}
+                />
+              </AppLayout>
+            ) : (
+              <Navigate to="/dashboard" />
+            )
+          }
         />
         <Route
           path="/dashboard"
-          element={user ? <Dashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} onLogout={handleLogout} /> : <Navigate to="/" />}
+          element={
+            user ? (
+              <AppLayout>
+                <Dashboard
+                  darkMode={darkMode}
+                  toggleDarkMode={toggleDarkMode}
+                  onLogout={handleLogout}
+                />
+              </AppLayout>
+            ) : (
+              <Navigate to="/" />
+            )
+          }
         />
-        {/* Catch all unknown routes */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     );
   };
 
   return (
-    <AppLayout>
-      <Router>
-        <AppRoutes />
-      </Router>
+    <Router>
+      <AppRoutes />
       <span className="absolute w-40 h-40 bg-yellow-200 rounded-full mix-blend-multiply opacity-30 animate-pulse -top-10 -left-10"></span>
       <span className="absolute w-32 h-32 bg-pink-300 rounded-full mix-blend-multiply opacity-25 animate-pulse -bottom-10 -right-5"></span>
       <style jsx>{`
@@ -201,8 +254,10 @@ export default function App() {
           50% { transform: translateY(-18px) rotate(8deg); opacity: 0.9; }
           100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
         }
-        ${[0, 1, 2, 3].map(i => `.animate-float-${i} { animation: float${i} ${6 + i}s ease-in-out infinite; }`).join("")}
+        ${[0, 1, 2, 3]
+          .map((i) => `.animate-float-${i} { animation: float${i} ${6 + i}s ease-in-out infinite; }`)
+          .join("")}
       `}</style>
-    </AppLayout>
+    </Router>
   );
 }

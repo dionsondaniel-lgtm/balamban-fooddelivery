@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef
-} from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 
 export default function Chat({ profile, patient, onClose }) {
@@ -30,8 +25,7 @@ export default function Chat({ profile, patient, onClose }) {
 
     const grouped = {};
     msgs.forEach((m) => {
-      const other =
-        m.sender_id === profile.id ? m.receiver_id : m.sender_id;
+      const other = m.sender_id === profile.id ? m.receiver_id : m.sender_id;
       if (!grouped[other]) grouped[other] = [];
       grouped[other].push(m);
     });
@@ -47,9 +41,7 @@ export default function Chat({ profile, patient, onClose }) {
         const list = grouped[uid];
         const last = list[0];
         const unread = list.filter(
-          (msg) =>
-            msg.receiver_id === profile.id &&
-            !msg.read_status
+          (msg) => msg.receiver_id === profile.id && !msg.read_status
         ).length;
 
         return {
@@ -79,9 +71,7 @@ export default function Chat({ profile, patient, onClose }) {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .or(
-          `room_id.eq.${roomId1},room_id.eq.${roomId2}`
-        )
+        .or(`room_id.eq.${roomId1},room_id.eq.${roomId2}`)
         .order("created_at", { ascending: true });
 
       if (error) return console.error(error);
@@ -89,19 +79,14 @@ export default function Chat({ profile, patient, onClose }) {
       setChatMessages(data || []);
 
       const unread = (data || []).filter(
-        (msg) =>
-          msg.receiver_id === profile.id &&
-          !msg.read_status
+        (msg) => msg.receiver_id === profile.id && !msg.read_status
       );
 
       if (unread.length > 0) {
         await supabase
           .from("notifications")
           .update({ read_status: true })
-          .in(
-            "id",
-            unread.map((u) => u.id)
-          );
+          .in("id", unread.map((u) => u.id));
       }
 
       fetchConversations();
@@ -110,13 +95,10 @@ export default function Chat({ profile, patient, onClose }) {
   );
 
   /* ================= EFFECTS ================= */
-
-  // Initial load
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Handle patient passed from parent (mobile direct open)
   useEffect(() => {
     if (patient) {
       setActivePatient(patient);
@@ -124,7 +106,6 @@ export default function Chat({ profile, patient, onClose }) {
     }
   }, [patient]);
 
-  // Realtime updates
   useEffect(() => {
     if (!activePatient || !profile) return;
 
@@ -134,9 +115,7 @@ export default function Chat({ profile, patient, onClose }) {
     const roomId2 = `room_staff${activePatient.id}_patient${profile.id}`;
 
     const channel = supabase
-      .channel(
-        `chat_${profile.id}_${activePatient.id}`
-      )
+      .channel(`chat_${profile.id}_${activePatient.id}`)
       .on(
         "postgres_changes",
         {
@@ -149,8 +128,7 @@ export default function Chat({ profile, patient, onClose }) {
       )
       .subscribe();
 
-    return () =>
-      supabase.removeChannel(channel);
+    return () => supabase.removeChannel(channel);
   }, [activePatient, profile, fetchMessages]);
 
   // Auto-expand textarea
@@ -163,19 +141,21 @@ export default function Chat({ profile, patient, onClose }) {
 
   // Auto-scroll
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  // Scroll on keyboard open (mobile friendly)
+  useEffect(() => {
+    const handleResize = () => {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   /* ================= SEND MESSAGE ================= */
   const sendChatMessage = async () => {
-    if (
-      !newChatMsg.trim() ||
-      !activePatient ||
-      !profile
-    )
-      return;
+    if (!newChatMsg.trim() || !activePatient || !profile) return;
 
     const roomId = `room_staff${profile.id}_patient${activePatient.id}`;
 
@@ -190,59 +170,43 @@ export default function Chat({ profile, patient, onClose }) {
     setNewChatMsg("");
     setChatMessages((prev) => [
       ...prev,
-      {
-        ...messageData,
-        created_at: new Date().toISOString(),
-      },
+      { ...messageData, created_at: new Date().toISOString() },
     ]);
 
-    const { error } = await supabase
-      .from("notifications")
-      .insert([messageData]);
-
-    if (error)
-      console.error(
-        "Error sending message:",
-        error
-      );
+    const { error } = await supabase.from("notifications").insert([messageData]);
+    if (error) console.error("Error sending message:", error);
   };
 
-const formatTime = (ts) => {
-  if (!ts) return "";
-  const date = new Date(ts);
-  const now = new Date();
+  const formatTime = (ts) => {
+    if (!ts) return "";
+    const date = new Date(ts);
+    const now = new Date();
 
-  const isToday =
-    date.getDate() === now.getDate() &&
-    date.getMonth() === now.getMonth() &&
-    date.getFullYear() === now.getFullYear();
+    const isToday =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear();
 
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday =
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear();
 
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-  if (isToday) return time;
-  if (isYesterday) return `Yesterday, ${time}`;
-  return date.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${time}`;
-};
+    const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return time;
+    if (isYesterday) return `Yesterday, ${time}`;
+    return date.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${time}`;
+  };
 
   if (!profile || !activePatient) {
-    return (
-      <div className="p-4 text-center">
-        Loading chat…
-      </div>
-    );
+    return <div className="p-4 text-center">Loading chat…</div>;
   }
 
   /* ================= RENDER ================= */
   return (
     <div className="flex h-full w-full bg-white/30 dark:bg-gray-800/40 backdrop-blur-md rounded-xl overflow-hidden">
-
       {/* CONVERSATION LIST */}
       <aside
         className={`
@@ -254,13 +218,8 @@ const formatTime = (ts) => {
         `}
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold">
-            Messages
-          </h3>
-          <button
-            onClick={onClose}
-            className="md:hidden text-xl"
-          >
+          <h3 className="font-semibold">Messages</h3>
+          <button onClick={onClose} className="md:hidden text-xl">
             ×
           </button>
         </div>
@@ -273,24 +232,19 @@ const formatTime = (ts) => {
                 setActivePatient(c.user);
                 setShowList(false);
               }}
-              className={`flex items-center p-2 rounded-lg cursor-pointer ${activePatient.id === c.user.id
+              className={`flex items-center p-2 rounded-lg cursor-pointer ${
+                activePatient.id === c.user.id
                   ? "bg-blue-400/40"
                   : "hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
-                }`}
+              }`}
             >
               <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
                 {c.user.name[0]}
               </div>
-
               <div className="ml-2 flex-1">
-                <p className="text-sm font-semibold truncate">
-                  {c.user.name}
-                </p>
-                <p className="text-xs truncate opacity-70">
-                  {c.last_message}
-                </p>
+                <p className="text-sm font-semibold truncate">{c.user.name}</p>
+                <p className="text-xs truncate opacity-70">{c.last_message}</p>
               </div>
-
               {c.unread_count > 0 && (
                 <span className="ml-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
                   {c.unread_count}
@@ -303,47 +257,32 @@ const formatTime = (ts) => {
 
       {/* CHAT PANEL */}
       <main
-        className={`flex-1 flex flex-col ${showList ? "hidden md:flex" : "flex"
-          }`}
+        className={`flex-1 flex flex-col min-h-0 ${showList ? "hidden md:flex" : "flex"}`}
       >
         <div className="flex items-center p-3 border-b">
-          <button
-            onClick={() => setShowList(true)}
-            className="md:hidden mr-2 text-xl"
-          >
+          <button onClick={() => setShowList(true)} className="md:hidden mr-2 text-xl">
             ←
           </button>
-
           <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
             {activePatient.name[0]}
           </div>
-
-          <h3 className="ml-2 font-semibold">
-            {activePatient.name}
-          </h3>
+          <h3 className="ml-2 font-semibold">{activePatient.name}</h3>
         </div>
 
-        <div className="flex-1 p-3 overflow-y-auto space-y-2">
+        <div className="flex-1 p-3 overflow-y-auto space-y-2 min-h-0">
           {chatMessages.map((msg, i) => {
-            const mine =
-              msg.sender_id === profile.id;
+            const mine = msg.sender_id === profile.id;
             return (
               <div
                 key={msg.id || i}
-                className={`flex ${mine
-                    ? "justify-end"
-                    : "justify-start"
-                  }`}
+                className={`flex ${mine ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${mine
-                      ? "bg-green-500 text-white"
-                      : "bg-white/50 dark:bg-gray-700/50"
-                    }`}
+                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${
+                    mine ? "bg-green-500 text-white" : "bg-white/50 dark:bg-gray-700/50"
+                  }`}
                 >
-                  <p className="whitespace-pre-wrap">
-                    {msg.message}
-                  </p>
+                  <p className="whitespace-pre-wrap">{msg.message}</p>
                   <span className="block text-xs mt-1 opacity-70 text-right">
                     {formatTime(msg.created_at)}
                   </span>
@@ -362,16 +301,16 @@ const formatTime = (ts) => {
             onChange={(e) => setNewChatMsg(e.target.value)}
             placeholder="Type a message..."
             className="
-      flex-1 p-3 rounded-2xl
-      resize-none
-      border border-gray-300 dark:border-gray-700
-      bg-gray-50 dark:bg-gray-800
-      text-gray-800 dark:text-gray-100
-      placeholder-gray-400 dark:placeholder-gray-500
-      focus:outline-none focus:ring-2 focus:ring-blue-400
-      transition-colors duration-200
-      shadow-sm hover:shadow-md
-    "
+              flex-1 p-3 rounded-2xl
+              resize-none
+              border border-gray-300 dark:border-gray-700
+              bg-gray-50 dark:bg-gray-800
+              text-gray-800 dark:text-gray-100
+              placeholder-gray-400 dark:placeholder-gray-500
+              focus:outline-none focus:ring-2 focus:ring-blue-400
+              transition-colors duration-200
+              shadow-sm hover:shadow-md
+            "
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -382,11 +321,11 @@ const formatTime = (ts) => {
           <button
             onClick={sendChatMessage}
             className="
-      bg-blue-500 hover:bg-blue-600
-      text-white px-4 py-2 rounded-2xl
-      font-semibold transition-colors duration-200
-      shadow-md
-    "
+              bg-blue-500 hover:bg-blue-600
+              text-white px-4 py-2 rounded-2xl
+              font-semibold transition-colors duration-200
+              shadow-md
+            "
           >
             Send
           </button>
