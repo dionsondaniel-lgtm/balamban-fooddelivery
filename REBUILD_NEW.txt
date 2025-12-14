@@ -1,0 +1,35 @@
+1. RUN THEN REPLACE ACTUAL FOLDER FOR GIT
+
+npm run build
+
+
+
+
+2. RUN BELOW TO UPDATE FINAL
+
+#!/bin/bash
+
+# Stage all changes
+git add .
+
+# Ask for commit message
+read -p "Commit message: " msg
+
+if [ -z "$msg" ]; then
+    echo "Commit aborted: empty message"
+    exit 1
+fi
+
+git commit -m "$msg"
+git push origin $(git rev-parse --abbrev-ref HEAD)
+npm run build
+
+
+==================================================================
+
+each time update reactapp:
+npm run build
+npx cap copy
+npx cap sync
+
+cd "C:\Users\User\Desktop\FoodPapaDan\my-modern-app\android"

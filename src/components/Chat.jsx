@@ -207,14 +207,29 @@ export default function Chat({ profile, patient, onClose }) {
       );
   };
 
-  const formatTime = (ts) => {
-    if (!ts) return "";
-    const date = new Date(ts);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+const formatTime = (ts) => {
+  if (!ts) return "";
+  const date = new Date(ts);
+  const now = new Date();
+
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  if (isToday) return time;
+  if (isYesterday) return `Yesterday, ${time}`;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${time}`;
+};
 
   if (!profile || !activePatient) {
     return (
@@ -258,11 +273,10 @@ export default function Chat({ profile, patient, onClose }) {
                 setActivePatient(c.user);
                 setShowList(false);
               }}
-              className={`flex items-center p-2 rounded-lg cursor-pointer ${
-                activePatient.id === c.user.id
+              className={`flex items-center p-2 rounded-lg cursor-pointer ${activePatient.id === c.user.id
                   ? "bg-blue-400/40"
                   : "hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
-              }`}
+                }`}
             >
               <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
                 {c.user.name[0]}
@@ -289,9 +303,8 @@ export default function Chat({ profile, patient, onClose }) {
 
       {/* CHAT PANEL */}
       <main
-        className={`flex-1 flex flex-col ${
-          showList ? "hidden md:flex" : "flex"
-        }`}
+        className={`flex-1 flex flex-col ${showList ? "hidden md:flex" : "flex"
+          }`}
       >
         <div className="flex items-center p-3 border-b">
           <button
@@ -317,18 +330,16 @@ export default function Chat({ profile, patient, onClose }) {
             return (
               <div
                 key={msg.id || i}
-                className={`flex ${
-                  mine
+                className={`flex ${mine
                     ? "justify-end"
                     : "justify-start"
-                }`}
+                  }`}
               >
                 <div
-                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${
-                    mine
+                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${mine
                       ? "bg-green-500 text-white"
                       : "bg-white/50 dark:bg-gray-700/50"
-                  }`}
+                    }`}
                 >
                   <p className="whitespace-pre-wrap">
                     {msg.message}
@@ -343,21 +354,26 @@ export default function Chat({ profile, patient, onClose }) {
           <div ref={chatEndRef} />
         </div>
 
-        <div className="flex gap-2 p-3 border-t">
+        <div className="flex gap-2 p-3 border-t bg-white/50 dark:bg-gray-900/50 backdrop-blur-md">
           <textarea
             ref={textareaRef}
             rows={1}
             value={newChatMsg}
-            onChange={(e) =>
-              setNewChatMsg(e.target.value)
-            }
+            onChange={(e) => setNewChatMsg(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 p-3 rounded-xl resize-none border focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="
+      flex-1 p-3 rounded-2xl
+      resize-none
+      border border-gray-300 dark:border-gray-700
+      bg-gray-50 dark:bg-gray-800
+      text-gray-800 dark:text-gray-100
+      placeholder-gray-400 dark:placeholder-gray-500
+      focus:outline-none focus:ring-2 focus:ring-blue-400
+      transition-colors duration-200
+      shadow-sm hover:shadow-md
+    "
             onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !e.shiftKey
-              ) {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 sendChatMessage();
               }
@@ -365,7 +381,12 @@ export default function Chat({ profile, patient, onClose }) {
           />
           <button
             onClick={sendChatMessage}
-            className="bg-blue-500 text-white px-4 py-2 rounded-xl"
+            className="
+      bg-blue-500 hover:bg-blue-600
+      text-white px-4 py-2 rounded-2xl
+      font-semibold transition-colors duration-200
+      shadow-md
+    "
           >
             Send
           </button>

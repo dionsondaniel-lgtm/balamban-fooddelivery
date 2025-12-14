@@ -3,7 +3,9 @@ my-modern-app/
 │  ├─ components/
 │  │  ├─ Sidebar.jsx
 │  │  ├─ Header.jsx
-│  │  ├─ ChatBox.jsx
+│  │  ├─ Chat.jsx
+│  │  ├─ ElectricBorder.jsx
+│  │  ├─ MobileNav.jsx
 │  ├─ pages/
 │  │  ├─ CustomerDashboard.jsx
 │  │  ├─ Dashboard.jsx

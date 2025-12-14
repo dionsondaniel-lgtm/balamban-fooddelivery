@@ -44,7 +44,11 @@ function formatElapsedTime(ms) {
   return `${h}:${m}:${s}`;
 }
 
-export default function CustomerDashboard({ selectedPage }) {
+export default function CustomerDashboard({
+  selectedPage,
+  registerBell,
+  setUnreadCount
+}) {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -60,6 +64,29 @@ export default function CustomerDashboard({ selectedPage }) {
   const [chatRider, setChatRider] = useState(null);
   const [sessionUser, setSessionUser] = useState(null);
 
+  // ----------------------------
+  // Bell registration
+  // ----------------------------
+  useEffect(() => {
+    if (!registerBell) return;
+
+    registerBell(() => {
+      // Open chat modal with latest order's rider
+      const latestOrderWithRider = orders.find(o => o.rider_id);
+      if (latestOrderWithRider) {
+        setChatRider({
+          id: latestOrderWithRider.rider_id,
+          name: "Rider"
+        });
+        setChatOpen(true);
+        setUnreadCount?.(0);
+      }
+    });
+  }, [registerBell, setUnreadCount, orders]);
+
+  // ----------------------------
+  // Fetch session user
+  // ----------------------------
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -68,6 +95,9 @@ export default function CustomerDashboard({ selectedPage }) {
     fetchUser();
   }, []);
 
+  // ----------------------------
+  // Fetch online riders
+  // ----------------------------
   const fetchOnlineRiders = async () => {
     const { data, error } = await supabase
       .from("ridercustomer_users")
@@ -75,6 +105,10 @@ export default function CustomerDashboard({ selectedPage }) {
       .eq("is_online", true);
     if (!error) setOnlineRiders(data.length);
   };
+
+  // ----------------------------
+  // Fetch rider name helper
+  // ----------------------------
   const fetchRiderName = async (riderId) => {
     const { data, error } = await supabase
       .from("ridercustomer_users")
@@ -86,6 +120,9 @@ export default function CustomerDashboard({ selectedPage }) {
     return data?.full_name || "Rider";
   };
 
+  // ----------------------------
+  // Fetch orders descending
+  // ----------------------------
   const fetchOrders = async () => {
     setLoadingOrders(true);
     const { data: { session } } = await supabase.auth.getSession();
@@ -95,11 +132,13 @@ export default function CustomerDashboard({ selectedPage }) {
       setLoadingOrders(false);
       return;
     }
+
     const { data, error } = await supabase
       .from("orders")
       .select("*")
-      .order("created_at", { ascending: true })
-      .eq("customer_id", userId);
+      .eq("customer_id", userId)
+      .order("created_at", { ascending: false }); // DESCENDING
+
     if (!error) setOrders(data || []);
     setLoadingOrders(false);
   };
@@ -109,6 +148,9 @@ export default function CustomerDashboard({ selectedPage }) {
     fetchOrders();
   }, []);
 
+  // ----------------------------
+  // Timers for orders
+  // ----------------------------
   useEffect(() => {
     const interval = setInterval(() => {
       const newTimers = {};
@@ -122,6 +164,9 @@ export default function CustomerDashboard({ selectedPage }) {
     return () => clearInterval(interval);
   }, [orders]);
 
+  // ----------------------------
+  // Form helpers
+  // ----------------------------
   const addItem = () => setForm(f => ({
     ...f,
     items: [...f.items, { name: "", qty: 1, price: 0 }]
@@ -147,7 +192,7 @@ export default function CustomerDashboard({ selectedPage }) {
     const isNightTime = hour >= 23 || hour < 4;
     const isBalamban = form.delivery_address.toLowerCase().includes("balamban");
     if (isBalamban && isNightTime) return 70;
-    return 40;
+    return 50;
   })();
 
   const totalAmount = form.items.reduce(
@@ -155,6 +200,9 @@ export default function CustomerDashboard({ selectedPage }) {
     0
   ) + deliveryFee;
 
+  // ----------------------------
+  // Handle submit
+  // ----------------------------
   const handleSubmit = async e => {
     e.preventDefault();
     if (onlineRiders === 0) {
@@ -192,6 +240,9 @@ export default function CustomerDashboard({ selectedPage }) {
     }
   };
 
+  // ----------------------------
+  // Confirm delivery
+  // ----------------------------
   const confirmDelivery = async (orderId) => {
     await supabase
       .from("orders")
@@ -200,6 +251,9 @@ export default function CustomerDashboard({ selectedPage }) {
     fetchOrders();
   };
 
+  // ----------------------------
+  // Auto-confirm delivered orders
+  // ----------------------------
   useEffect(() => {
     const delivered = orders.filter(o => o.status === "delivered");
     delivered.forEach(o => {
@@ -211,9 +265,13 @@ export default function CustomerDashboard({ selectedPage }) {
 
   if (loadingOrders) return <div>Loading…</div>;
 
+  // ----------------------------
+  // Charts
+  // ----------------------------
   const dates = [...new Set(orders.map(o =>
     new Date(o.created_at).toLocaleDateString()
-  ))];
+  ))].sort((a, b) => new Date(a) - new Date(b)); // oldest → latest
+
 
   const stackedDatasets = ALL_STATUSES.map(status => ({
     label: status.toUpperCase(),
@@ -273,9 +331,11 @@ export default function CustomerDashboard({ selectedPage }) {
 
   const glassClass = "bg-white/30 dark:bg-gray-800/40 backdrop-blur-md shadow-lg rounded-xl border border-white/20 dark:border-gray-700/30 p-4";
 
+  // ----------------------------
+  // JSX
+  // ----------------------------
   return (
     <div className="space-y-6 px-2 md:px-6">
-
       {/* ONLINE RIDERS */}
       <div className={glassClass}>
         <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
@@ -311,7 +371,6 @@ export default function CustomerDashboard({ selectedPage }) {
         <>
           <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Place a New Order</h2>
           <form onSubmit={handleSubmit} className={glassClass + " md:p-6 space-y-4"}>
-
             {onlineRiders === 0 && (
               <div className="bg-red-200 text-red-700 p-3 rounded text-sm">
                 No riders are online. Order cannot be placed right now.
@@ -324,7 +383,6 @@ export default function CustomerDashboard({ selectedPage }) {
                 value={form.pickup_address}
                 onChange={e => setForm({ ...form, pickup_address: e.target.value })}
                 className="w-full border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" required />
-
               <input type="text" placeholder="Delivery address"
                 value={form.delivery_address}
                 onChange={e => setForm({ ...form, delivery_address: e.target.value })}
@@ -338,16 +396,13 @@ export default function CustomerDashboard({ selectedPage }) {
                   value={it.name}
                   onChange={e => handleItemChange(idx, "name", e.target.value)}
                   className="border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100" required />
-
                 <input type="number" min="1" value={it.qty} placeholder="Qty."
                   onChange={e => handleItemChange(idx, "qty", e.target.value)}
                   className="border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100" required />
-
                 <input type="number" min="0" placeholder="Price"
                   value={it.price || ""}
                   onChange={e => handleItemChange(idx, "price", e.target.value)}
                   className="border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100" required />
-
                 <button type="button" onClick={() => removeItem(idx)} className="text-red-500 font-semibold">
                   Remove
                 </button>
@@ -365,10 +420,17 @@ export default function CustomerDashboard({ selectedPage }) {
               </button>
             </div>
 
-            <div className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-100">
-              <div>Delivery Fee: ₱{deliveryFee.toFixed(2)} {deliveryFee === 70 && <span className="text-red-500">(Night surcharge for Balamban)</span>}</div>
+            <div className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-100 space-y-1">
+              <div>
+                Delivery Fee: ₱{deliveryFee.toFixed(2)}{" "}
+                {deliveryFee === 70 && <span className="text-red-500">(Night surcharge for Balamban)</span>}
+              </div>
               <div>Total: ₱{totalAmount.toFixed(2)}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                ⚠ Delivery fees may vary depending on distance, time, and rider availability.
+              </div>
             </div>
+
 
             <select value={form.payment}
               onChange={e => setForm({ ...form, payment: e.target.value })}
@@ -392,7 +454,6 @@ export default function CustomerDashboard({ selectedPage }) {
                   ? "Placing..."
                   : "Place Order"}
             </button>
-
           </form>
 
           {/* ORDER LIST */}
@@ -401,96 +462,79 @@ export default function CustomerDashboard({ selectedPage }) {
             <p className="text-gray-600 dark:text-gray-300">No orders yet.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orders.map(o => (
-                <div key={o.id} className={glassClass + " space-y-2"}>
-                  <p><strong>Pickup:</strong> {o.pickup_address}</p>
-                  <p><strong>Delivery:</strong> {o.delivery_address}</p>
+              {orders
+                .slice() // copy so we don't mutate state
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) // latest first
+                .map(o => (
+                  <div key={o.id} className={glassClass + " space-y-2"}>
+                    <p><strong>Pickup:</strong> {o.pickup_address}</p>
+                    <p><strong>Delivery:</strong> {o.delivery_address}</p>
+                    <ul className="pl-4 list-disc text-sm text-gray-800 dark:text-gray-200">
+                      {o.items.map((it, i) => (
+                        <li key={i}>{it.name} × {it.qty} — ₱{(it.qty * it.price).toFixed(2)}</li>
+                      ))}
+                    </ul>
+                    <p><strong>Total:</strong> ₱{o.total_amount.toFixed(2)}</p>
 
-                  <ul className="pl-4 list-disc text-sm text-gray-800 dark:text-gray-200">
-                    {o.items.map((it, i) => (
-                      <li key={i}>
-                        {it.name} × {it.qty} — ₱{(it.qty * it.price).toFixed(2)}
-                      </li>
-                    ))}
-                  </ul>
+                    <div className="flex justify-between items-center">
+                      <span
+                        className="px-3 py-1 rounded-full text-white font-semibold text-xs md:text-sm"
+                        style={{ backgroundColor: STATUS_COLORS[o.status] }}
+                      >
+                        {o.status.toUpperCase()}
+                      </span>
+                      <span className="font-mono text-sm text-gray-700 dark:text-gray-300">
+                        {timers[o.id]}
+                      </span>
+                    </div>
 
-                  <p><strong>Total:</strong> ₱{o.total_amount}</p>
+                    {o.status === "delivered" && (
+                      <button
+                        onClick={() => confirmDelivery(o.id)}
+                        className="mt-2 bg-green-600 text-white px-4 py-1 rounded w-full hover:bg-green-700"
+                      >
+                        Confirm Delivery
+                      </button>
+                    )}
 
-                  <div className="flex justify-between items-center">
-                    <span
-                      className="px-3 py-1 rounded-full text-white font-semibold text-xs md:text-sm"
-                      style={{ backgroundColor: STATUS_COLORS[o.status] }}
-                    >
-                      {o.status.toUpperCase()}
-                    </span>
-
-                    <span className="font-mono text-sm text-gray-700 dark:text-gray-300">
-                      {timers[o.id]}
-                    </span>
+                    {o.rider_id && sessionUser && (
+                      <button
+                        onClick={async () => {
+                          const riderName = await fetchRiderName(o.rider_id);
+                          setChatRider({ id: o.rider_id, name: riderName });
+                          setChatOpen(true);
+                        }}
+                        className="mt-2 bg-indigo-600 text-white px-3 py-1 rounded w-full hover:bg-indigo-700"
+                      >
+                        Chat with Rider
+                      </button>
+                    )}
                   </div>
-
-                  {o.status === "delivered" && (
-                    <button
-                      onClick={() => confirmDelivery(o.id)}
-                      className="mt-2 bg-green-600 text-white px-4 py-1 rounded w-full hover:bg-green-700"
-                    >
-                      Confirm Delivery
-                    </button>
-                  )}
-
-                  {o.rider_id && sessionUser && (
-                    <button
-                      onClick={async () => {
-                        const riderName = await fetchRiderName(o.rider_id);
-                        setChatRider({ id: o.rider_id, name: riderName });
-                        setChatOpen(true);
-                      }}
-                      className="mt-2 bg-indigo-600 text-white px-3 py-1 rounded w-full hover:bg-indigo-700"
-                    >
-                      Chat with Rider
-                    </button>
-
-                  )}
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </>
       )}
 
-
       {/* CHAT MODAL */}
       {chatOpen && chatRider && sessionUser && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl h-[80vh] flex flex-col shadow-lg text-gray-800 dark:text-gray-100">
-
-            {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold">
-                Chat with {chatRider.name}
-              </h3>
+              <h3 className="text-lg font-semibold">Chat with {chatRider.name}</h3>
               <button
                 onClick={() => setChatOpen(false)}
-                className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 ✕
               </button>
             </div>
-
-            {/* Chat Body */}
-            <div className="flex-1 overflow-hidden">
-              <Chat
-                profile={sessionUser}
-                patient={chatRider}
-                onClose={() => setChatOpen(false)}
-              />
+            <div className="flex-1 overflow-y-auto p-4">
+              <Chat profile={sessionUser} patient={chatRider} onClose={() => setChatOpen(false)} />
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }
-

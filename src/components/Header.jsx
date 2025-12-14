@@ -2,17 +2,24 @@
 import { FiBell, FiLogOut } from "react-icons/fi";
 import { useState } from "react";
 
-export default function Header({ toggleDarkMode, darkMode, onLogout, user }) {
+export default function Header({
+  toggleDarkMode,
+  darkMode,
+  onLogout,
+  user,
+  unreadCount = 0,
+  onBellClick
+}) {
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
 
   const displayName = user?.name || user?.email || "User";
-  const role = user?.role?.toLowerCase() || "customer"; // "rider" | "customer"
+  const role = user?.role?.toLowerCase() || "customer";
 
   const hours = new Date().getHours();
   const greetingTime =
     hours < 12 ? "Good morning" :
-      hours < 18 ? "Good afternoon" :
-        "Good evening";
+    hours < 18 ? "Good afternoon" :
+    "Good evening";
 
   const roleMessage =
     role === "rider"
@@ -21,7 +28,7 @@ export default function Header({ toggleDarkMode, darkMode, onLogout, user }) {
 
   const handleLogoutClick = () => {
     if (role === "rider") setShowLogoutMenu(true);
-    else onLogout("online"); // customer logout
+    else onLogout("online");
   };
 
   const chooseOption = (option) => {
@@ -31,6 +38,7 @@ export default function Header({ toggleDarkMode, darkMode, onLogout, user }) {
 
   return (
     <header className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700 shadow-sm space-y-2 sm:space-y-0">
+
       {/* Logo */}
       <img src="/dan.svg" alt="Logo" className="h-10 w-auto" />
 
@@ -45,11 +53,22 @@ export default function Header({ toggleDarkMode, darkMode, onLogout, user }) {
 
       {/* Icons */}
       <div className="flex items-center gap-4 mt-2 sm:mt-0">
-        <button className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+
+        {/* 🔔 Bell */}
+        <button
+          onClick={onBellClick}
+          className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
           <FiBell className="text-gray-600 dark:text-gray-300 text-2xl" />
-          <span className="absolute top-1 right-1 inline-block w-2 h-2 bg-red-500 rounded-full"></span>
+
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full min-w-[18px] text-center">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
+        {/* Dark mode */}
         <button
           onClick={toggleDarkMode}
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
@@ -57,6 +76,7 @@ export default function Header({ toggleDarkMode, darkMode, onLogout, user }) {
           {darkMode ? "☀️" : "🌙"}
         </button>
 
+        {/* Logout */}
         <button
           onClick={handleLogoutClick}
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -67,26 +87,26 @@ export default function Header({ toggleDarkMode, darkMode, onLogout, user }) {
 
       {/* Rider Logout Menu */}
       {showLogoutMenu && role === "rider" && (
-        <div className="absolute right-6 top-16 w-60 p-4 rounded-lg z-50 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 shadow-lg">
+        <div className="absolute right-6 top-16 w-60 p-4 rounded-lg z-50 bg-white dark:bg-gray-700 shadow-lg">
           <p className="font-semibold mb-3">Logout Options</p>
 
           <button
             onClick={() => chooseOption("offline")}
-            className="w-full bg-green-600 text-white py-2 rounded mb-2 hover:bg-green-700"
+            className="w-full bg-green-600 text-white py-2 rounded mb-2"
           >
             Go Offline & Logout
           </button>
 
           <button
             onClick={() => chooseOption("online")}
-            className="w-full bg-blue-600 text-white py-2 rounded mb-2 hover:bg-blue-700"
+            className="w-full bg-blue-600 text-white py-2 rounded mb-2"
           >
             Logout but Stay Online
           </button>
 
           <button
             onClick={() => setShowLogoutMenu(false)}
-            className="w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
+            className="w-full bg-gray-500 text-white py-2 rounded"
           >
             Cancel
           </button>
