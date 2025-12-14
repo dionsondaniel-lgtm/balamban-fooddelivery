@@ -21,3 +21,4 @@ my-modern-app/
 │  ├─ supabaseClient.js
 ├─ tailwind.config.cjs
 └─ vite.config.js
+└─ vercel.json
