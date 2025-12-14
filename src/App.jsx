@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -23,11 +23,13 @@ export default function App() {
     setUser(null);
   };
 
+  // Dark mode effect
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
     document.documentElement.style.transition = "background 0.5s, color 0.5s";
   }, [darkMode]);
 
+  // Supabase session & auth listener
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
@@ -38,13 +40,14 @@ export default function App() {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_, session) => setUser(session?.user ?? null)
-    );
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Disclaimer remembered
   useEffect(() => {
     const remembered = localStorage.getItem("disclaimerAgreed") === "true";
     if (remembered) setDisclaimerAgreed(true);
@@ -57,7 +60,7 @@ export default function App() {
       </div>
     );
 
-  // Disclaimer modal
+  // Disclaimer Modal
   const DisclaimerModal = ({ onClose }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-white/20 dark:border-gray-700 w-full max-w-md h-[90vh] overflow-y-auto p-6 flex flex-col animate-fadeIn">
@@ -87,8 +90,11 @@ export default function App() {
           <button
             onClick={() => {
               setDisclaimerAgreed(true);
-              if (rememberDisclaimer) localStorage.setItem("disclaimerAgreed", "true");
-              else localStorage.removeItem("disclaimerAgreed");
+              if (rememberDisclaimer) {
+                localStorage.setItem("disclaimerAgreed", "true");
+              } else {
+                localStorage.removeItem("disclaimerAgreed");
+              }
             }}
             className="py-2 px-4 rounded text-white font-semibold bg-gradient-to-r from-green-400 to-blue-500 hover:from-blue-500 hover:to-green-400 transition-all duration-300"
           >
@@ -112,11 +118,9 @@ export default function App() {
 
   if (!disclaimerAgreed) return <DisclaimerModal />;
 
-  // Layout wrapper
   const AppLayout = ({ children }) => (
     <div className="relative min-h-screen flex flex-col bg-gradient-to-br from-yellow-50 via-red-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 transition-all duration-700 overflow-hidden">
       <ElectricBorder>{children}</ElectricBorder>
-
       <div className="w-full py-4 text-center mt-auto z-10">
         <button
           onClick={() => setShowDisclaimerModal(true)}
@@ -125,32 +129,80 @@ export default function App() {
           View Disclaimer
         </button>
       </div>
-
       {showDisclaimerModal && <DisclaimerModal onClose={() => setShowDisclaimerModal(false)} />}
     </div>
   );
 
-  // Main routing
+  // Routes component with navigation
+  const AppRoutes = () => {
+    const navigate = useNavigate();
+
+    return (
+      <Routes>
+        <Route
+          path="/"
+          element={<Landing onShowLogin={() => navigate("/login")} onShowRegister={() => navigate("/register")} />}
+        />
+        <Route
+          path="/login"
+          element={!user ? <Login onLogin={(u) => { setUser(u); navigate("/dashboard"); }} switchToRegister={() => navigate("/register")} /> : <Navigate to="/dashboard" />}
+        />
+        <Route
+          path="/register"
+          element={!user ? <Register onLogin={(u) => { setUser(u); navigate("/dashboard"); }} switchToLogin={() => navigate("/login")} /> : <Navigate to="/dashboard" />}
+        />
+        <Route
+          path="/dashboard"
+          element={user ? <Dashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} onLogout={handleLogout} /> : <Navigate to="/" />}
+        />
+        {/* Catch all unknown routes */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    );
+  };
+
   return (
-    <BrowserRouter>
-      <AppLayout>
-        <Routes>
-          <Route path="/" element={<Landing onShowLogin={() => {}} onShowRegister={() => {}} />} />
-          <Route
-            path="/login"
-            element={!user ? <Login onLogin={setUser} switchToRegister={() => {}} /> : <Navigate to="/dashboard" />}
-          />
-          <Route
-            path="/register"
-            element={!user ? <Register onLogin={setUser} switchToLogin={() => {}} /> : <Navigate to="/dashboard" />}
-          />
-          <Route
-            path="/dashboard"
-            element={user ? <Dashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} onLogout={handleLogout} /> : <Navigate to="/login" />}
-          />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </AppLayout>
-    </BrowserRouter>
+    <AppLayout>
+      <Router>
+        <AppRoutes />
+      </Router>
+      <span className="absolute w-40 h-40 bg-yellow-200 rounded-full mix-blend-multiply opacity-30 animate-pulse -top-10 -left-10"></span>
+      <span className="absolute w-32 h-32 bg-pink-300 rounded-full mix-blend-multiply opacity-25 animate-pulse -bottom-10 -right-5"></span>
+      <style jsx>{`
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn { animation: fadeIn 0.8s ease forwards; }
+
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.1); opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 6s ease-in-out infinite; }
+
+        @keyframes float1 {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+          50% { transform: translateY(-20px) rotate(10deg); opacity: 1; }
+          100% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+        }
+        @keyframes float2 {
+          0% { transform: translateY(0) rotate(-5deg); opacity: 0.7; }
+          50% { transform: translateY(-25px) rotate(5deg); opacity: 0.9; }
+          100% { transform: translateY(0) rotate(-5deg); opacity: 0.7; }
+        }
+        @keyframes float3 {
+          0% { transform: translateY(0) rotate(5deg); opacity: 0.6; }
+          50% { transform: translateY(-15px) rotate(-5deg); opacity: 0.8; }
+          100% { transform: translateY(0) rotate(5deg); opacity: 0.6; }
+        }
+        @keyframes float0 {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+          50% { transform: translateY(-18px) rotate(8deg); opacity: 0.9; }
+          100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+        }
+        ${[0, 1, 2, 3].map(i => `.animate-float-${i} { animation: float${i} ${6 + i}s ease-in-out infinite; }`).join("")}
+      `}</style>
+    </AppLayout>
   );
 }
