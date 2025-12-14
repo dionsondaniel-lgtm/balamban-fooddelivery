@@ -18,12 +18,18 @@ if (-not $msg) {
     exit 1
 }
 
+# Commit changes
 git commit -m "$msg"
-git push origin $(git rev-parse --abbrev-ref HEAD)
+
+# Push to the current branch
+$branch = git rev-parse --abbrev-ref HEAD
+git push origin $branch
 
 # Build the Vite app
 npm run build
 
+# Optional: Deploy to Vercel if you have Vercel CLI installed
+# vercel --prod
 
 
 ==================================================================

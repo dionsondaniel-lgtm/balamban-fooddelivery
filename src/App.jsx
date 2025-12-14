@@ -21,6 +21,8 @@ export default function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    // Navigate to landing page after logout
+    window.location.href = "/";
   };
 
   useEffect(() => {
@@ -31,8 +33,7 @@ export default function App() {
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
-      const sessionUser = data.session?.user ?? null;
-      setUser(sessionUser);
+      setUser(data.session?.user ?? null);
       setLoading(false);
     };
 
