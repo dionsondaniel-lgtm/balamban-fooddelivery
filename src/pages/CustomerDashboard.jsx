@@ -63,6 +63,7 @@ export default function CustomerDashboard({
   const [chatOpen, setChatOpen] = useState(false);
   const [chatRider, setChatRider] = useState(null);
   const [sessionUser, setSessionUser] = useState(null);
+  const [liveLocation, setLiveLocation] = useState(null);
 
   // ----------------------------
   // Bell registration
@@ -94,6 +95,82 @@ export default function CustomerDashboard({
     };
     fetchUser();
   }, []);
+
+  // Only fetch live location to show hint, do NOT autofill delivery address
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+
+          const detectedAddress = data?.display_name || "Unknown location";
+
+          setLiveLocation({
+            lat: latitude,
+            lng: longitude,
+            address: detectedAddress
+          });
+
+          // ❌ Remove auto-fill: do not set form.delivery_address here
+
+        } catch (err) {
+          console.warn("Reverse geocoding failed", err);
+        }
+      },
+      (err) => {
+        console.warn("Location permission denied", err);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
+  // Fill delivery address ONLY when user clicks the button
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+
+          const detectedAddress = data?.display_name || "Unknown location";
+
+          setLiveLocation({
+            lat: latitude,
+            lng: longitude,
+            address: detectedAddress
+          });
+
+          // ✅ Autofill delivery address here
+          setForm(f => ({ ...f, delivery_address: detectedAddress }));
+
+        } catch (err) {
+          console.warn("Reverse geocoding failed", err);
+        }
+      },
+      (err) => {
+        alert("Location access denied");
+        console.error(err);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
 
   // ----------------------------
   // Fetch online riders
@@ -191,8 +268,8 @@ export default function CustomerDashboard({
     const hour = now.getHours();
     const isNightTime = hour >= 23 || hour < 4;
     const isBalamban = form.delivery_address.toLowerCase().includes("balamban");
-    if (isBalamban && isNightTime) return 70;
-    return 50;
+    if (isBalamban && isNightTime) return 120;
+    return 100;
   })();
 
   const totalAmount = form.items.reduce(
@@ -221,10 +298,21 @@ export default function CustomerDashboard({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
+      const finalDeliveryAddress = liveLocation
+        ? `${form.delivery_address} | Live location: ${liveLocation.address} (${liveLocation.lat}, ${liveLocation.lng})`
+        : form.delivery_address;
+      <button
+        type="button"
+        onClick={detectLocation}
+        className="text-blue-500 text-xs mt-1 underline"
+      >
+        📍 Use my current location
+      </button>
+
       await supabase.from("orders").insert([{
         customer_id: userId,
         pickup_address: form.pickup_address,
-        delivery_address: form.delivery_address,
+        delivery_address: finalDeliveryAddress,
         items: form.items,
         total_amount: totalAmount,
         payment_method: form.payment,
@@ -379,15 +467,48 @@ export default function CustomerDashboard({
 
             {/* ADDRESSES */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input type="text" placeholder="Pickup address"
+              {/* Pickup Address */}
+              <input
+                type="text"
+                placeholder="Pickup address"
                 value={form.pickup_address}
                 onChange={e => setForm({ ...form, pickup_address: e.target.value })}
-                className="w-full border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" required />
-              <input type="text" placeholder="Delivery address"
-                value={form.delivery_address}
-                onChange={e => setForm({ ...form, delivery_address: e.target.value })}
-                className="w-full border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" required />
+                className="w-full border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                required
+              />
+
+              {/* Delivery Address */}
+              <div className="flex flex-col">
+                <input
+                  type="text"
+                  placeholder="Delivery address"
+                  value={form.delivery_address} // controlled by user input only
+                  onChange={e => setForm({ ...form, delivery_address: e.target.value })}
+                  className="w-full border border-white/30 dark:border-gray-600/50 p-2 rounded bg-white/20 dark:bg-gray-700/40 text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  required
+                />
+
+                {/* Live location display hint */}
+                {liveLocation && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    📍 Live location detected: {liveLocation.address} ({liveLocation.lat.toFixed(5)}, {liveLocation.lng.toFixed(5)})
+                  </p>
+                )}
+
+                {/* Detect location button */}
+                {navigator.geolocation && (
+                  <button
+                    type="button"
+                    onClick={detectLocation}
+                    className="text-blue-500 text-xs mt-1 underline"
+                  >
+                    📍 Use my current location
+                  </button>
+                )}
+              </div>
             </div>
+
+
 
             {/* ITEMS */}
             {form.items.map((it, idx) => (
@@ -431,7 +552,7 @@ export default function CustomerDashboard({
             <div className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-100 space-y-1">
               <div>
                 Delivery Fee: ₱{deliveryFee.toFixed(2)}{" "}
-                {deliveryFee === 70 && <span className="text-red-500">(Night surcharge for Balamban)</span>}
+                {deliveryFee === 120 && <span className="text-red-500">(Night surcharge for Balamban)</span>}
               </div>
               <div>Total: ₱{totalAmount.toFixed(2)}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">

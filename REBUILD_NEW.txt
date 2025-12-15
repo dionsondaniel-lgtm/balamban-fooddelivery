@@ -35,8 +35,19 @@ npm run build
 ==================================================================
 
 each time update reactapp:
+
+# Install dependencies if needed
+npm install
+
+# Build the production-ready React/Vite app
 npm run build
+
+# Copy built web assets to native platforms
 npx cap copy
+
+# Sync plugins, configuration, and platforms
 npx cap sync
 
-cd "C:\Users\User\Desktop\FoodPapaDan\my-modern-app\android"
+npx cap open android
+
+
