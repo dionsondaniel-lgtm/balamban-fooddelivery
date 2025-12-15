@@ -96,45 +96,12 @@ export default function CustomerDashboard({
     fetchUser();
   }, []);
 
-  // Only fetch live location to show hint, do NOT autofill delivery address
+  // ----------------------------
+  // Live location detection on page load (hint only)
+  // ----------------------------
   useEffect(() => {
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await res.json();
-
-          const detectedAddress = data?.display_name || "Unknown location";
-
-          setLiveLocation({
-            lat: latitude,
-            lng: longitude,
-            address: detectedAddress
-          });
-
-          // ❌ Remove auto-fill: do not set form.delivery_address here
-
-        } catch (err) {
-          console.warn("Reverse geocoding failed", err);
-        }
-      },
-      (err) => {
-        console.warn("Location permission denied", err);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }, []);
-
-  // Fill delivery address ONLY when user clicks the button
-  const detectLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation not supported");
+      alert("Geolocation is not supported by your browser.");
       return;
     }
 
@@ -156,7 +123,59 @@ export default function CustomerDashboard({
             address: detectedAddress
           });
 
-          // ✅ Autofill delivery address here
+          // ❌ Do not autofill delivery address here
+
+        } catch (err) {
+          console.warn("Reverse geocoding failed", err);
+        }
+      },
+      (err) => {
+        // Handle location errors
+        if (err.code === err.PERMISSION_DENIED) {
+          alert(
+            "Location access is denied. Please enable location services in your browser to use live location."
+          );
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          alert("Location information is unavailable.");
+        } else if (err.code === err.TIMEOUT) {
+          alert("Location request timed out. Please try again.");
+        } else {
+          alert("An unknown error occurred while detecting location.");
+        }
+        console.error("Geolocation error:", err);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
+  // ----------------------------
+  // Detect location button (fills delivery address)
+  // ----------------------------
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+
+          const detectedAddress = data?.display_name || "Unknown location";
+
+          setLiveLocation({
+            lat: latitude,
+            lng: longitude,
+            address: detectedAddress
+          });
+
+          // ✅ Autofill delivery address only when button clicked
           setForm(f => ({ ...f, delivery_address: detectedAddress }));
 
         } catch (err) {
@@ -164,12 +183,23 @@ export default function CustomerDashboard({
         }
       },
       (err) => {
-        alert("Location access denied");
-        console.error(err);
+        if (err.code === err.PERMISSION_DENIED) {
+          alert(
+            "Location access is denied. Please enable location services in your browser."
+          );
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          alert("Location information is unavailable.");
+        } else if (err.code === err.TIMEOUT) {
+          alert("Location request timed out. Please try again.");
+        } else {
+          alert("An unknown error occurred while detecting location.");
+        }
+        console.error("Geolocation error:", err);
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+
 
 
   // ----------------------------
