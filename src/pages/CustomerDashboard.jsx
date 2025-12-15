@@ -282,32 +282,34 @@ export default function CustomerDashboard({
   // ----------------------------
   const handleSubmit = async e => {
     e.preventDefault();
+
     if (onlineRiders === 0) {
       alert("No riders are online. Please wait until a rider becomes available.");
       return;
     }
+
+    if (!liveLocation) {
+      alert("Cannot place order. Please enable location and click 'Use my current location'.");
+      return;
+    }
+
     if (!form.pickup_address.trim() || !form.delivery_address.trim()) {
       alert("Please fill all required fields.");
       return;
     }
+
     if (form.items.length === 0) {
       alert("Please add at least one item.");
       return;
     }
+
     setSubmitting(true);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
-      const finalDeliveryAddress = liveLocation
-        ? `${form.delivery_address} | Live location: ${liveLocation.address} (${liveLocation.lat}, ${liveLocation.lng})`
-        : form.delivery_address;
-      <button
-        type="button"
-        onClick={detectLocation}
-        className="text-blue-500 text-xs mt-1 underline"
-      >
-        📍 Use my current location
-      </button>
+
+      const finalDeliveryAddress = `${form.delivery_address} | Live location: ${liveLocation.address} (${liveLocation.lat}, ${liveLocation.lng})`;
 
       await supabase.from("orders").insert([{
         customer_id: userId,
@@ -319,6 +321,7 @@ export default function CustomerDashboard({
         payment_status: "pending",
         status: "pending",
       }]);
+
       setForm({ pickup_address: "", delivery_address: "", items: [], payment: "Cash" });
       await fetchOrders();
     } catch (err) {
@@ -570,18 +573,20 @@ export default function CustomerDashboard({
 
             <button
               type="submit"
-              disabled={submitting || onlineRiders === 0}
+              disabled={submitting || onlineRiders === 0 || !liveLocation}
               className={`px-4 py-2 rounded text-white w-full md:w-auto font-semibold
-                ${onlineRiders === 0
+                  ${onlineRiders === 0 || !liveLocation
                   ? "bg-gray-500 cursor-not-allowed"
                   : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500"
                 }`}
             >
               {onlineRiders === 0
                 ? "No Riders Available"
-                : submitting
-                  ? "Placing..."
-                  : "Place Order"}
+                : !liveLocation
+                  ? "Enable Location to Place Order"
+                  : submitting
+                    ? "Placing..."
+                    : "Place Order"}
             </button>
           </form>
 
