@@ -16,6 +16,10 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
   const [bellHandler, setBellHandler] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   // ---------------- FETCH PROFILE ----------------
   useEffect(() => {
     const fetchProfile = async () => {
@@ -76,8 +80,13 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
           onLogout={handleLogout}
           darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
-          unreadCount={unreadCount}
-          onBellClick={() => bellHandler?.()}
+          unreadCount={unreadCount}           // 📊 unread count shown here
+          onBellClick={() => {
+            // Clear unread when bell clicked
+            setUnreadCount(0);
+            bellHandler?.();                   // Call registered click (opens chat)
+          }}
+          onRefresh={handleRefresh}           // 🔄 Refresh
         />
 
         {/* MOBILE NAV */}
@@ -92,8 +101,8 @@ export default function Dashboard({ onLogout, darkMode, toggleDarkMode }) {
           {profile.role === "Customer" && (
             <CustomerDashboard
               selectedPage={selectedPage}
-              registerBell={(fn) => setBellHandler(() => fn)}
-              setUnreadCount={setUnreadCount}
+              registerBell={(fn) => setBellHandler(() => fn)} // Bell handler set here
+              setUnreadCount={setUnreadCount}               // Pocket for updating unread
             />
           )}
 

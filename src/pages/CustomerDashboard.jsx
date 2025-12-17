@@ -66,9 +66,11 @@ export default function CustomerDashboard({
   const [liveLocation, setLiveLocation] = useState(null);
 
   const isAndroid = /Android/i.test(navigator.userAgent);
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
   const isStandalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     window.navigator.standalone === true;
+
 
   const checkLocationPermission = async () => {
     if (!navigator.permissions) return "unknown";
@@ -81,52 +83,53 @@ export default function CustomerDashboard({
     }
   };
 
-const handleLocationSuccess = async (pos, autofill = false) => {
-  const { latitude, longitude } = pos.coords;
+  const handleLocationSuccess = async (pos, autofill = false) => {
+    const { latitude, longitude } = pos.coords;
 
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-    );
-    const data = await res.json();
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+      );
+      const data = await res.json();
 
-    const address = data?.display_name || "Unknown location";
+      const address = data?.display_name || "Unknown location";
 
-    setLiveLocation({
-      lat: latitude,
-      lng: longitude,
-      address
-    });
+      setLiveLocation({
+        lat: latitude,
+        lng: longitude,
+        address
+      });
 
-    // ✅ Autofill ONLY on button click
-    if (autofill) {
-      setForm(f => ({ ...f, delivery_address: address }));
+      // ✅ Autofill ONLY on button click
+      if (autofill) {
+        setForm(f => ({ ...f, delivery_address: address }));
+      }
+    } catch {
+      console.warn("Reverse geocoding failed");
     }
-  } catch {
-    console.warn("Reverse geocoding failed");
-  }
-};
+  };
 
 
   // ----------------------------
   // Bell registration
   // ----------------------------
   useEffect(() => {
-    if (!registerBell) return;
+  if (!registerBell) return;
 
-    registerBell(() => {
-      // Open chat modal with latest order's rider
-      const latestOrderWithRider = orders.find(o => o.rider_id);
-      if (latestOrderWithRider) {
-        setChatRider({
-          id: latestOrderWithRider.rider_id,
-          name: "Rider"
-        });
-        setChatOpen(true);
-        setUnreadCount?.(0);
-      }
-    });
-  }, [registerBell, setUnreadCount, orders]);
+  registerBell(() => {
+    const latestOrderWithRider = orders.find(o => o.rider_id);
+
+    if (latestOrderWithRider) {
+      setChatRider({
+        id: latestOrderWithRider.rider_id,
+        name: "Rider"
+      });
+      setChatOpen(true);
+      setUnreadCount(0); // ✅ CLEAR BADGE
+    }
+  });
+}, [orders, registerBell, setUnreadCount]);
+
 
   // ----------------------------
   // Fetch session user
@@ -143,22 +146,42 @@ const handleLocationSuccess = async (pos, autofill = false) => {
   // Live location detection on page load (hint only)
   // ----------------------------
   useEffect(() => {
-  const initLocation = async () => {
-    if (!navigator.geolocation) return;
+    const initLocation = async () => {
+      if (!navigator.geolocation) return;
 
-    const permission = await checkLocationPermission();
+      const permission = await checkLocationPermission();
 
-    if (permission === "granted") {
-      navigator.geolocation.getCurrentPosition(
-        handleLocationSuccess,
-        () => {},
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    }
-  };
+      // ✅ Android mobile/app + location already ON
+      if (
+        permission === "granted" &&
+        isAndroid &&
+        (isMobile || isStandalone)
+      ) {
+        navigator.geolocation.getCurrentPosition(
+          pos => handleLocationSuccess(pos, false), // no autofill
+          () => { }, // silent
+          {
+            enableHighAccuracy: true,
+            timeout: 6000,
+            maximumAge: 0 // 🔑 force refresh
+          }
+        );
+      }
 
-  initLocation();
-}, []);
+      // 🌐 non-Android browsers
+      if (permission === "granted" && !isAndroid) {
+        navigator.geolocation.getCurrentPosition(
+          pos => handleLocationSuccess(pos, false),
+          () => { },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      }
+    };
+
+    initLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
 
 
@@ -166,30 +189,30 @@ const handleLocationSuccess = async (pos, autofill = false) => {
   // Detect location button (fills delivery address)
   // ----------------------------
   const detectLocation = () => {
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported.");
-    return;
-  }
+    if (!navigator.geolocation) {
+      alert("Geolocation not supported.");
+      return;
+    }
 
-  navigator.geolocation.getCurrentPosition(
-    handleLocationSuccess,
-    (err) => {
-      if (err.code === err.PERMISSION_DENIED) {
-        alert(
-          "Location permission is OFF.\n\n" +
-          "Android steps:\n" +
-          "1. Settings → Apps\n" +
-          "2. Select your app / Chrome\n" +
-          "3. Permissions → Location\n" +
-          "4. Allow"
-        );
-      } else {
-        alert("Unable to detect location. Please try again.");
-      }
-    },
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-};
+    navigator.geolocation.getCurrentPosition(
+      handleLocationSuccess,
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          alert(
+            "Location permission is OFF.\n\n" +
+            "Android steps:\n" +
+            "1. Settings → Apps\n" +
+            "2. Select your app / Chrome\n" +
+            "3. Permissions → Location\n" +
+            "4. Allow"
+          );
+        } else {
+          alert("Unable to detect location. Please try again.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
 
 

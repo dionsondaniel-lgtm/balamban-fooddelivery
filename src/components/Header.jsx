@@ -1,5 +1,5 @@
 // src/components/Header.jsx
-import { FiBell, FiLogOut } from "react-icons/fi";
+import { FiBell, FiLogOut, FiRefreshCw } from "react-icons/fi";
 import { useState } from "react";
 
 export default function Header({
@@ -8,7 +8,8 @@ export default function Header({
   onLogout,
   user,
   unreadCount = 0,
-  onBellClick
+  onBellClick,
+  onRefresh
 }) {
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
 
@@ -66,6 +67,15 @@ export default function Header({
               {unreadCount}
             </span>
           )}
+        </button>
+
+        {/* 🔄 Refresh */}
+        <button
+          onClick={onRefresh}
+          title="Refresh"
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+        >
+          <FiRefreshCw className="text-gray-600 dark:text-gray-300 text-2xl" />
         </button>
 
         {/* Dark mode */}
