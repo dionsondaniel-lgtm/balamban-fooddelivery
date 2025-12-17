@@ -65,6 +65,49 @@ export default function CustomerDashboard({
   const [sessionUser, setSessionUser] = useState(null);
   const [liveLocation, setLiveLocation] = useState(null);
 
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+  const checkLocationPermission = async () => {
+    if (!navigator.permissions) return "unknown";
+
+    try {
+      const status = await navigator.permissions.query({ name: "geolocation" });
+      return status.state; // "granted" | "prompt" | "denied"
+    } catch {
+      return "unknown";
+    }
+  };
+
+const handleLocationSuccess = async (pos, autofill = false) => {
+  const { latitude, longitude } = pos.coords;
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+    );
+    const data = await res.json();
+
+    const address = data?.display_name || "Unknown location";
+
+    setLiveLocation({
+      lat: latitude,
+      lng: longitude,
+      address
+    });
+
+    // ✅ Autofill ONLY on button click
+    if (autofill) {
+      setForm(f => ({ ...f, delivery_address: address }));
+    }
+  } catch {
+    console.warn("Reverse geocoding failed");
+  }
+};
+
+
   // ----------------------------
   // Bell registration
   // ----------------------------
@@ -100,105 +143,54 @@ export default function CustomerDashboard({
   // Live location detection on page load (hint only)
   // ----------------------------
   useEffect(() => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      return;
+  const initLocation = async () => {
+    if (!navigator.geolocation) return;
+
+    const permission = await checkLocationPermission();
+
+    if (permission === "granted") {
+      navigator.geolocation.getCurrentPosition(
+        handleLocationSuccess,
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
     }
+  };
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
+  initLocation();
+}, []);
 
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await res.json();
 
-          const detectedAddress = data?.display_name || "Unknown location";
-
-          setLiveLocation({
-            lat: latitude,
-            lng: longitude,
-            address: detectedAddress
-          });
-
-          // ❌ Do not autofill delivery address here
-
-        } catch (err) {
-          console.warn("Reverse geocoding failed", err);
-        }
-      },
-      (err) => {
-        // Handle location errors
-        if (err.code === err.PERMISSION_DENIED) {
-          alert(
-            "Location access is denied. Please enable location services in your browser to use live location."
-          );
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          alert("Location information is unavailable.");
-        } else if (err.code === err.TIMEOUT) {
-          alert("Location request timed out. Please try again.");
-        } else {
-          alert("An unknown error occurred while detecting location.");
-        }
-        console.error("Geolocation error:", err);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }, []);
 
   // ----------------------------
   // Detect location button (fills delivery address)
   // ----------------------------
   const detectLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      return;
-    }
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported.");
+    return;
+  }
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
+  navigator.geolocation.getCurrentPosition(
+    handleLocationSuccess,
+    (err) => {
+      if (err.code === err.PERMISSION_DENIED) {
+        alert(
+          "Location permission is OFF.\n\n" +
+          "Android steps:\n" +
+          "1. Settings → Apps\n" +
+          "2. Select your app / Chrome\n" +
+          "3. Permissions → Location\n" +
+          "4. Allow"
+        );
+      } else {
+        alert("Unable to detect location. Please try again.");
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+};
 
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await res.json();
-
-          const detectedAddress = data?.display_name || "Unknown location";
-
-          setLiveLocation({
-            lat: latitude,
-            lng: longitude,
-            address: detectedAddress
-          });
-
-          // ✅ Autofill delivery address only when button clicked
-          setForm(f => ({ ...f, delivery_address: detectedAddress }));
-
-        } catch (err) {
-          console.warn("Reverse geocoding failed", err);
-        }
-      },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          alert(
-            "Location access is denied. Please enable location services in your browser."
-          );
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          alert("Location information is unavailable.");
-        } else if (err.code === err.TIMEOUT) {
-          alert("Location request timed out. Please try again.");
-        } else {
-          alert("An unknown error occurred while detecting location.");
-        }
-        console.error("Geolocation error:", err);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
 
 
@@ -526,17 +518,6 @@ export default function CustomerDashboard({
                   <p className="text-xs text-gray-500 mt-1">
                     📍 Live location detected: {liveLocation.address} ({liveLocation.lat.toFixed(5)}, {liveLocation.lng.toFixed(5)})
                   </p>
-                )}
-
-                {/* Detect location button */}
-                {navigator.geolocation && (
-                  <button
-                    type="button"
-                    onClick={detectLocation}
-                    className="text-blue-500 text-xs mt-1 underline"
-                  >
-                    📍 Use my current location
-                  </button>
                 )}
               </div>
             </div>
