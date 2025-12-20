@@ -270,14 +270,13 @@ export default function RiderDashboard({ selectedPage, onHeaderLogout = () => { 
       </button>
       <button
         onClick={() => {
-          // Add timestamp to force remount
-          navigate(`/rider/map/${o.id}`, { state: { key: Date.now() } });
+          // Force full page reload to ensure fresh data
+          window.location.href = `/rider/map/${o.id}`;
         }}
         className="mt-2 w-full px-3 py-1 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition"
       >
         View Map
       </button>
-
     </div>
   );
 
