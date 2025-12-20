@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
 import Chat from "../components/Chat";
+import RiderOrderMap from "./RiderOrderMap";
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -56,6 +58,8 @@ export default function RiderDashboard({ selectedPage, onHeaderLogout = () => { 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatCustomer, setChatCustomer] = useState(null);
   const [weather, setWeather] = useState(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapOrderId, setMapOrderId] = useState(null);
 
   // ---------------- WEATHER ----------------
   const fetchWeather = async () => {
@@ -268,10 +272,11 @@ export default function RiderDashboard({ selectedPage, onHeaderLogout = () => { 
       >
         Chat with Customer
       </button>
+      {/* View Map Button */}
       <button
         onClick={() => {
-          // Force full page reload to ensure fresh data
-          window.location.href = `/rider/map/${o.id}`;
+          setMapOrderId(o.id); // new state to track which order's map to show
+          setMapOpen(true);    // open the map modal
         }}
         className="mt-2 w-full px-3 py-1 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition"
       >
@@ -359,6 +364,28 @@ export default function RiderDashboard({ selectedPage, onHeaderLogout = () => { 
           </div>
         </div>
       )}
+
+      {/* Map Modal */}
+      {mapOpen && mapOrderId && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl h-[80vh] flex flex-col shadow-lg">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold">🗺️ Order Map</h3>
+              <button
+                onClick={() => setMapOpen(false)}
+                className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {/* Load RiderOrderMap and pass the orderId */}
+              <RiderOrderMap key={mapOrderId} orderId={mapOrderId} />
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

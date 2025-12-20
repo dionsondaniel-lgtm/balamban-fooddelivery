@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-export default function RiderOrderMap() {
-  const { orderId } = useParams();
+export default function RiderOrderMap({ orderId: propOrderId }) {
+  const { orderId: paramOrderId } = useParams();
+  const orderId = propOrderId || paramOrderId; // <-- use prop first
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -11,20 +12,23 @@ export default function RiderOrderMap() {
   const [customerLocation, setCustomerLocation] = useState(null);
   const [error, setError] = useState(null);
   const [startLocation, setStartLocation] = useState("");
-
   const [useDropdown, setUseDropdown] = useState(true);
 
-  // Known Balamban places
   const BALAMBAN_LOCATIONS = [
-    "Jollibee Balamban, Sta. Cruz, Balamban",        // fast food restaurant :contentReference[oaicite:1]{index=1}
-    "Balamban Public Market, Balamban",               // local market :contentReference[oaicite:2]{index=2}
-    "Old Balamban Municipal Hall, Balamban",          // historic building :contentReference[oaicite:3]{index=3}
-    "Lokal ng Balamban, Iglesia ni Cristo, Balamban", // local church :contentReference[oaicite:4]{index=4}
-    "St. Francis of Assisi Parish Church, Balamban"    // common local parish (community info) :contentReference[oaicite:5]{index=5}
+    "Jollibee Balamban, Sta. Cruz, Balamban",
+    "Balamban Public Market, Balamban",
+    "Old Balamban Municipal Hall, Balamban",
+    "Lokal ng Balamban, Iglesia ni Cristo, Balamban",
+    "St. Francis of Assisi Parish Church, Balamban"
   ];
 
   /* -------- FETCH ORDER -------- */
   useEffect(() => {
+    if (!orderId) {
+      setError("Order ID missing");
+      return;
+    }
+
     setCustomerLocation(null);
     setError(null);
 
@@ -33,14 +37,12 @@ export default function RiderOrderMap() {
       .select("delivery_address")
       .eq("id", orderId)
       .single()
-      .then(({ data }) => {
-        if (!data) {
+      .then(({ data, error: fetchError }) => {
+        if (fetchError || !data) {
           setError("Order not found");
           return;
         }
-        const match = data.delivery_address?.match(
-          /\(([-\d.]+),\s*([-\d.]+)\)/
-        );
+        const match = data.delivery_address?.match(/\(([-\d.]+),\s*([-\d.]+)\)/);
         if (!match) {
           setError("Customer location missing");
           return;
@@ -60,12 +62,7 @@ export default function RiderOrderMap() {
     }
 
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setRiderLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-      },
+      (pos) => setRiderLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => setError("Unable to get rider location"),
       { enableHighAccuracy: true }
     );
@@ -88,11 +85,7 @@ export default function RiderOrderMap() {
     );
   }
 
-  /* -------- DETERMINE ORIGIN -------- */
-  const origin =
-    startLocation || (riderLocation ? `${riderLocation.lat},${riderLocation.lng}` : "");
-
-  /* -------- GOOGLE MAPS LINK -------- */
+  const origin = startLocation || (riderLocation ? `${riderLocation.lat},${riderLocation.lng}` : "");
   const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
     origin
   )}&destination=${customerLocation.lat},${customerLocation.lng}&travelmode=driving`;
@@ -104,29 +97,17 @@ export default function RiderOrderMap() {
         Select or enter a starting point below, or leave blank to use your current location.
       </p>
 
-      {/* Input Mode Toggle */}
       <div className="flex justify-center gap-6">
         <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            checked={useDropdown}
-            onChange={() => setUseDropdown(true)}
-            className="accent-green-400"
-          />
+          <input type="radio" checked={useDropdown} onChange={() => setUseDropdown(true)} className="accent-green-400" />
           Known Places
         </label>
         <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            checked={!useDropdown}
-            onChange={() => setUseDropdown(false)}
-            className="accent-green-400"
-          />
+          <input type="radio" checked={!useDropdown} onChange={() => setUseDropdown(false)} className="accent-green-400" />
           Custom
         </label>
       </div>
 
-      {/* Dropdown for Known Places */}
       {useDropdown ? (
         <select
           value={startLocation}
@@ -135,9 +116,7 @@ export default function RiderOrderMap() {
         >
           <option value="">-- Select Starting Point --</option>
           {BALAMBAN_LOCATIONS.map((loc, i) => (
-            <option key={i} value={loc}>
-              {loc}
-            </option>
+            <option key={i} value={loc}>{loc}</option>
           ))}
         </select>
       ) : (
@@ -150,7 +129,6 @@ export default function RiderOrderMap() {
         />
       )}
 
-      {/* Navigate Button */}
       <a
         href={googleMapsUrl}
         target="_blank"
@@ -160,7 +138,6 @@ export default function RiderOrderMap() {
         🛵 Navigate
       </a>
 
-      {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
         className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold transition"
@@ -170,3 +147,4 @@ export default function RiderOrderMap() {
     </div>
   );
 }
+
