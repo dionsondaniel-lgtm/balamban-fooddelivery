@@ -1,5 +1,6 @@
 // src/pages/RiderDashboard.jsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
 import Chat from "../components/Chat";
@@ -43,6 +44,7 @@ function formatElapsedTime(ms) {
 }
 
 export default function RiderDashboard({ selectedPage, onHeaderLogout = () => { }, registerBell, setUnreadCount }) {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [availableOrders, setAvailableOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -266,6 +268,16 @@ export default function RiderDashboard({ selectedPage, onHeaderLogout = () => { 
       >
         Chat with Customer
       </button>
+      <button
+        onClick={() => {
+          // Add timestamp to force remount
+          navigate(`/rider/map/${o.id}`, { state: { key: Date.now() } });
+        }}
+        className="mt-2 w-full px-3 py-1 rounded bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition"
+      >
+        View Map
+      </button>
+
     </div>
   );
 

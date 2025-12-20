@@ -7,6 +7,7 @@ import Register from "./pages/Register";
 import Landing from "./pages/Landing";
 import { supabase } from "./supabaseClient";
 import ElectricBorder from "./components/ElectricBorder";
+import RiderOrderMap from "./pages/RiderOrderMap";
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(false);
@@ -278,6 +279,19 @@ export default function App() {
             )
           }
         />
+        <Route
+          path="/rider/map/:orderId"
+          element={
+            user ? (
+              <AppLayout>
+                <RiderOrderMap />
+              </AppLayout>
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     );
