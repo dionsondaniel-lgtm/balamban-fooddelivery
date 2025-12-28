@@ -3,7 +3,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global Styles */
+/* =====================================================
+   GLOBAL STYLES
+===================================================== */
 :root {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -11,79 +13,133 @@
   color-scheme: light dark;
 }
 
-/* Light Mode */
+/* =====================================================
+   BASE COLORS
+===================================================== */
 body {
-  @apply bg-gray-50 text-gray-900;
+  background-color: #f9fafb; /* gray-50 */
+  color: #111827;           /* gray-900 */
 }
 
-a {
-  @apply text-blue-600 font-medium hover:text-blue-800;
-}
-
-button {
-  @apply rounded-lg border border-transparent px-4 py-2 font-medium bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors;
-}
-
-/* Dark Mode */
 .dark body {
-  @apply bg-gray-900 text-gray-100;
+  background-color: #111827; /* gray-900 */
+  color: #f9fafb;           /* gray-50 */
 }
 
+/* Links */
+a {
+  color: #2563eb;
+  font-weight: 500;
+}
+a:hover {
+  color: #1e40af;
+}
 .dark a {
-  @apply text-blue-400 hover:text-blue-200;
+  color: #60a5fa;
+}
+.dark a:hover {
+  color: #bfdbfe;
+}
+
+/* =====================================================
+   BUTTONS (GLOBAL SAFE DEFAULT)
+   (keeps your design but avoids Tailwind conflicts)
+===================================================== */
+button {
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  background-color: #e5e7eb;
+  color: #111827;
+  transition: background-color 0.2s ease;
+}
+button:hover {
+  background-color: #d1d5db;
 }
 
 .dark button {
-  @apply bg-gray-800 text-gray-100 hover:bg-gray-700;
+  background-color: #1f2937;
+  color: #f9fafb;
+}
+.dark button:hover {
+  background-color: #374151;
 }
 
-/* Headings */
+/* =====================================================
+   HEADINGS
+===================================================== */
 h1, h2, h3, h4 {
-  @apply font-bold;
+  font-weight: 700;
 }
 
-/* Cards */
+/* =====================================================
+   CARDS
+===================================================== */
 .card {
-  @apply p-4 rounded-xl shadow-md bg-white dark:bg-gray-800 transition-colors;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  transition: background-color 0.3s;
+}
+.dark .card {
+  background-color: #1f2937;
 }
 
-/* Scrollbar (optional for better UX) */
+/* =====================================================
+   SCROLLBAR (SAFE, NO @apply)
+===================================================== */
 ::-webkit-scrollbar {
   width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 dark:bg-gray-600 rounded-full;
+  background-color: #9ca3af;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-gray-200 dark:bg-gray-700;
+  background-color: #e5e7eb;
+}
+.dark ::-webkit-scrollbar-track {
+  background-color: #374151;
 }
 
-/* Responsive adjustments */
+/* =====================================================
+   RESPONSIVE (NO @apply IN MEDIA QUERIES)
+===================================================== */
 @media (max-width: 640px) {
   body {
-    @apply p-2;
+    padding: 0.5rem;
   }
   .card {
-    @apply p-3;
+    padding: 0.75rem;
   }
   h1 {
-    @apply text-xl;
+    font-size: 1.25rem;
   }
 }
 
-/* ================= FLOATING EMOJIS ================= */
-
+/* =====================================================
+   FLOATING EMOJIS
+===================================================== */
 @keyframes fadeIn {
   0% { opacity: 0; transform: translateY(20px); }
   100% { opacity: 1; transform: translateY(0); }
 }
-.animate-fadeIn { animation: fadeIn 0.8s ease forwards; }
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease forwards;
+}
 
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 0.3; }
   50% { transform: scale(1.1); opacity: 0.5; }
 }
-.animate-pulse { animation: pulse 6s ease-in-out infinite; }
+.animate-pulse {
+  animation: pulse 6s ease-in-out infinite;
+}
 
 @keyframes float0 {
   0% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
@@ -111,8 +167,9 @@ h1, h2, h3, h4 {
 .animate-float-2 { animation: float2 8s ease-in-out infinite; }
 .animate-float-3 { animation: float3 9s ease-in-out infinite; }
 
-/* ================= ELECTRIC BORDER ================= */
-
+/* =====================================================
+   ELECTRIC BORDER
+===================================================== */
 .electric-wrapper {
   position: relative;
   margin: 1rem;
@@ -162,8 +219,9 @@ h1, h2, h3, h4 {
   to { transform: rotate(360deg); }
 }
 
-/* ================= LIGHTNING ================= */
-
+/* =====================================================
+   LIGHTNING
+===================================================== */
 .lightning-layer {
   position: absolute;
   inset: 0;
@@ -190,4 +248,25 @@ h1, h2, h3, h4 {
   92% { opacity: 1; stroke-width: 1.6; }
   95% { opacity: 0.7; stroke-width: 0.8; }
   100% { opacity: 0; }
+}
+
+/* =====================================================
+   NOTIFICATION BADGE PULSE
+===================================================== */
+@keyframes notifPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59,130,246,0.5);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px rgba(59,130,246,0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-notif-pulse {
+  animation: notifPulse 1.6s infinite;
 }

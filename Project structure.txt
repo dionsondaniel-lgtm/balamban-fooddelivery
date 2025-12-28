@@ -1,4 +1,6 @@
 my-modern-app/
+├─ public/
+│  ├─ sw.js
 ├─ src/
 │  ├─ assets/
 │  │  ├─ react.svg

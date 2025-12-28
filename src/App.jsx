@@ -9,6 +9,15 @@ import { supabase } from "./supabaseClient";
 import ElectricBorder from "./components/ElectricBorder";
 import RiderOrderMap from "./pages/RiderOrderMap";
 
+// Push notification helper
+const sendPushNotification = async (title, body, url = "/dashboard") => {
+  if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ title, body, url });
+  } else if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body, icon: "/dan.svg" });
+  }
+};
+
 export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [user, setUser] = useState(null);
@@ -19,6 +28,8 @@ export default function App() {
   const [showAppPrompt, setShowAppPrompt] = useState(false);
   const [latestApkUrl, setLatestApkUrl] = useState("");
   const [apkVersion, setApkVersion] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
   const toggleDarkMode = () => setDarkMode((d) => !d);
 
@@ -28,19 +39,19 @@ export default function App() {
     window.location.href = "/";
   };
 
+  // DARK MODE
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
     document.documentElement.style.transition = "background 0.5s, color 0.5s";
   }, [darkMode]);
 
-  // Check Supabase session
+  // CHECK SESSION
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       setUser(data.session?.user ?? null);
       setLoading(false);
     };
-
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
@@ -50,27 +61,26 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Disclaimer check
+  // DISCLAIMER
   useEffect(() => {
     const remembered = localStorage.getItem("disclaimerAgreed") === "true";
     if (remembered) setDisclaimerAgreed(true);
   }, []);
 
-  // Check for APK updates (mobile only)
+  // APK PROMPT
   useEffect(() => {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile) return; // Skip if not mobile
+    if (!isMobile) return;
 
     const checkApk = async () => {
       try {
         const url = "https://ooyuqgbmgqhvpyoonric.supabase.co/storage/v1/object/public/app-updates/FoodPapaDan.apk";
         setLatestApkUrl(url);
 
-        const latestVersion = "1.0.2"; // Replace with dynamic fetch if desired
+        const latestVersion = "1.0.2";
         setApkVersion(latestVersion);
 
         const installedVersion = localStorage.getItem("installedApkVersion");
-
         if (!installedVersion || installedVersion !== latestVersion) {
           setShowAppPrompt(true);
         }
@@ -78,10 +88,56 @@ export default function App() {
         console.error("Failed to fetch APK info:", err);
       }
     };
-
     checkApk();
   }, []);
 
+  // NOTIFICATION PROMPT
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    const notifAgreed = localStorage.getItem("notificationsAgreed");
+    if (Notification.permission === "default" && notifAgreed !== "true") {
+      setShowNotifPrompt(true);
+    }
+  }, []);
+
+  // SUPABASE REAL-TIME NOTIFICATIONS
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchUnread = async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("receiver_id", user.id)
+        .eq("read_status", false);
+      if (!error) setUnreadCount(data.length);
+    };
+    fetchUnread();
+
+    const channel = supabase
+      .channel(`notifications_global_${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const notif = payload.new;
+          if (!notif.read_status) {
+            setUnreadCount((prev) => prev + 1);
+            sendPushNotification("New Notification", notif.message || "You have a new update!");
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   if (loading)
     return (
@@ -90,6 +146,7 @@ export default function App() {
       </div>
     );
 
+  // MODALS (Disclaimer, AppPrompt, NotificationPrompt)
   const DisclaimerModal = ({ onClose }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-white/20 dark:border-gray-700 w-full max-w-md h-[90vh] overflow-y-auto p-6 flex flex-col animate-fadeIn">
@@ -101,7 +158,6 @@ export default function App() {
             to these terms and release the app and riders from any liability.
           </p>
         </div>
-
         <div className="flex items-center mb-4">
           <input
             type="checkbox"
@@ -110,32 +166,22 @@ export default function App() {
             onChange={() => setRememberDisclaimer(!rememberDisclaimer)}
             className="mr-2 accent-blue-500"
           />
-          <label htmlFor="rememberDisclaimer" className="text-sm">
-            Remember my agreement
-          </label>
+          <label htmlFor="rememberDisclaimer" className="text-sm">Remember my agreement</label>
         </div>
-
         <div className="flex justify-between items-center mt-auto">
           <button
             onClick={() => {
               setDisclaimerAgreed(true);
-              if (rememberDisclaimer) {
-                localStorage.setItem("disclaimerAgreed", "true");
-              } else {
-                localStorage.removeItem("disclaimerAgreed");
-              }
+              if (rememberDisclaimer) localStorage.setItem("disclaimerAgreed", "true");
+              else localStorage.removeItem("disclaimerAgreed");
+              if (onClose) onClose();
             }}
             className="py-2 px-4 rounded text-white font-semibold bg-gradient-to-r from-green-400 to-blue-500 hover:from-blue-500 hover:to-green-400 transition-all duration-300"
           >
             I Agree
           </button>
-
           <button
-            onClick={() => {
-              setDisclaimerAgreed(false);
-              localStorage.removeItem("disclaimerAgreed");
-              if (onClose) onClose();
-            }}
+            onClick={() => { setDisclaimerAgreed(false); localStorage.removeItem("disclaimerAgreed"); if (onClose) onClose(); }}
             className="py-2 px-4 rounded text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
           >
             Close
@@ -145,31 +191,81 @@ export default function App() {
     </div>
   );
 
-  const AppPromptModal = () => (
+  const AppPromptModal = () => {
+    const installedVersion = localStorage.getItem("installedApkVersion");
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-white/20 dark:border-gray-700 w-full max-w-md p-6 flex flex-col animate-fadeIn">
+          <h2 className="text-2xl font-bold mb-4">📲 FoodPapaDan App</h2>
+          <p className="mb-4 text-sm md:text-base">
+            {installedVersion
+              ? `A new version (${apkVersion}) is available. Would you like to update the Android app on your device?`
+              : "Would you like to try the FoodPapaDan Android app for a smoother mobile experience?"}
+          </p>
+          <div className="flex justify-between mt-auto">
+            <a
+              href={latestApkUrl}
+              download
+              className="py-2 px-4 rounded text-white font-semibold bg-gradient-to-r from-green-400 to-blue-500 hover:from-blue-500 hover:to-green-400 transition-all duration-300"
+              onClick={() => {
+                localStorage.setItem("installedApkVersion", apkVersion);
+                setShowAppPrompt(false);
+              }}
+            >
+              {installedVersion ? "Update App" : "Download App"}
+            </a>
+            <button
+              onClick={() => setShowAppPrompt(false)}
+              className="py-2 px-4 rounded text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const NotificationPromptModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-white/20 dark:border-gray-700 w-full max-w-md p-6 flex flex-col animate-fadeIn">
-        <h2 className="text-2xl font-bold mb-4">📲 FoodPapaDan App</h2>
+        <h2 className="text-2xl font-bold mb-4">🔔 Enable Notifications</h2>
         <p className="mb-4 text-sm md:text-base">
-          {localStorage.getItem("installedApkVersion")
-            ? `A new version (${apkVersion}) is available. Would you like to update the Android app on your device?`
-            : "Would you like to try the FoodPapaDan Android app for a smoother mobile experience?"}
+          Stay updated with new orders, messages, and important updates. Enable notifications for the best experience.
         </p>
-
         <div className="flex justify-between mt-auto">
-          <a
-            href={latestApkUrl}
-            download
-            className="py-2 px-4 rounded text-white font-semibold bg-gradient-to-r from-green-400 to-blue-500 hover:from-blue-500 hover:to-green-400 transition-all duration-300"
-            onClick={() => {
-              localStorage.setItem("installedApkVersion", apkVersion);
-              setShowAppPrompt(false);
+          <button
+            onClick={async () => {
+              try {
+                const permission = await Notification.requestPermission();
+                if (permission === "granted") {
+                  localStorage.setItem("notificationsAgreed", "true");
+
+                  // Register service worker
+                  if ("serviceWorker" in navigator) {
+                    navigator.serviceWorker.register("/sw.js").then(() => {
+                      console.log("Service Worker registered!");
+                    }).catch(console.error);
+                  }
+                } else {
+                  localStorage.setItem("notificationsAgreed", "false");
+                }
+              } catch (err) {
+                console.error("Notification request failed:", err);
+                localStorage.setItem("notificationsAgreed", "false");
+              }
+              setShowNotifPrompt(false);
             }}
+            className="py-2 px-4 rounded text-white font-semibold bg-gradient-to-r from-green-400 to-blue-500 hover:from-blue-500 hover:to-green-400 transition-all duration-300"
           >
-            {localStorage.getItem("installedApkVersion") ? "Update App" : "Download App"}
-          </a>
+            Enable
+          </button>
 
           <button
-            onClick={() => setShowAppPrompt(false)}
+            onClick={() => {
+              localStorage.setItem("notificationsAgreed", "false");
+              setShowNotifPrompt(false);
+            }}
             className="py-2 px-4 rounded text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
           >
             Cancel
@@ -181,29 +277,12 @@ export default function App() {
 
   if (!disclaimerAgreed) return <DisclaimerModal />;
   if (showAppPrompt) return <AppPromptModal />;
+  if (showNotifPrompt) return <NotificationPromptModal />;
 
+  // APP LAYOUT
   const AppLayout = ({ children, showFloatingFoods }) => (
     <div className="relative min-h-screen flex flex-col bg-gradient-to-br from-yellow-50 via-red-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 transition-all duration-700 overflow-hidden">
       <ElectricBorder>{children}</ElectricBorder>
-
-      {showFloatingFoods && (
-        <div className="absolute inset-0 pointer-events-none">
-          {["🍔", "🍕", "🍟", "🌭", "🥤", "🍩", "🍰", "🥪"].map((emoji, idx) => (
-            <span
-              key={idx}
-              className={`absolute text-2xl md:text-3xl animate-float-${idx % 4}`}
-              style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 5}s`,
-              }}
-            >
-              {emoji}
-            </span>
-          ))}
-        </div>
-      )}
-
       <div className="w-full py-4 text-center mt-auto z-10">
         <button
           onClick={() => setShowDisclaimerModal(true)}
@@ -212,133 +291,57 @@ export default function App() {
           View Disclaimer
         </button>
       </div>
-
       {showDisclaimerModal && <DisclaimerModal onClose={() => setShowDisclaimerModal(false)} />}
     </div>
   );
 
+  // APP ROUTES
   const AppRoutes = () => {
     const navigate = useNavigate();
-
     return (
       <Routes>
-        <Route
-          path="/"
-          element={
-            <AppLayout showFloatingFoods={true}>
-              <Landing
-                onShowLogin={() => navigate("/login")}
-                onShowRegister={() => navigate("/register")}
-              />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            !user ? (
-              <AppLayout>
-                <Login
-                  onLogin={(u) => { setUser(u); navigate("/dashboard"); }}
-                  switchToRegister={() => navigate("/register")}
-                />
-              </AppLayout>
-            ) : (
-              <Navigate to="/dashboard" />
-            )
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            !user ? (
-              <AppLayout>
-                <Register
-                  onLogin={(u) => { setUser(u); navigate("/dashboard"); }}
-                  switchToLogin={() => navigate("/login")}
-                />
-              </AppLayout>
-            ) : (
-              <Navigate to="/dashboard" />
-            )
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            user ? (
-              <AppLayout>
-                <Dashboard
-                  darkMode={darkMode}
-                  toggleDarkMode={toggleDarkMode}
-                  onLogout={handleLogout}
-                />
-              </AppLayout>
-            ) : (
-              <Navigate to="/" />
-            )
-          }
-        />
-        <Route
-          path="/rider/map/:orderId"
-          element={
-            user ? (
-              <AppLayout>
-                <RiderOrderMap />
-              </AppLayout>
-            ) : (
-              <Navigate to="/" />
-            )
-          }
-        />
-
+        <Route path="/" element={<AppLayout showFloatingFoods={true}><Landing onShowLogin={() => navigate("/login")} onShowRegister={() => navigate("/register")} /></AppLayout>} />
+        <Route path="/login" element={!user ? <AppLayout><Login onLogin={(u) => { setUser(u); navigate("/dashboard"); }} switchToRegister={() => navigate("/register")} /></AppLayout> : <Navigate to="/dashboard" />} />
+        <Route path="/register" element={!user ? <AppLayout><Register onLogin={(u) => { setUser(u); navigate("/dashboard"); }} switchToLogin={() => navigate("/login")} /></AppLayout> : <Navigate to="/dashboard" />} />
+        <Route path="/dashboard" element={user ? <AppLayout><Dashboard darkMode={darkMode} toggleDarkMode={toggleDarkMode} onLogout={handleLogout} unreadCount={unreadCount} /></AppLayout> : <Navigate to="/" />} />
+        <Route path="/rider/map/:orderId" element={user ? <AppLayout><RiderOrderMap /></AppLayout> : <Navigate to="/" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     );
   };
 
+  // FINAL RETURN
   return (
     <Router>
       <AppRoutes />
+
+      {/* Global Background Decorations */}
       <span className="absolute w-40 h-40 bg-yellow-200 rounded-full mix-blend-multiply opacity-30 animate-pulse -top-10 -left-10"></span>
       <span className="absolute w-32 h-32 bg-pink-300 rounded-full mix-blend-multiply opacity-25 animate-pulse -bottom-10 -right-5"></span>
+
+      {/* CSS Animations */}
       <style jsx>{`
-        @keyframes fadeIn {
-          0% { opacity: 0; transform: translateY(20px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn { animation: fadeIn 0.8s ease forwards; }
+      @keyframes fadeIn {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fadeIn { animation: fadeIn 0.8s ease forwards; }
 
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 0.3; }
-          50% { transform: scale(1.1); opacity: 0.5; }
-        }
-        .animate-pulse { animation: pulse 6s ease-in-out infinite; }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.3; }
+        50% { transform: scale(1.1); opacity: 0.5; }
+      }
+      .animate-pulse { animation: pulse 6s ease-in-out infinite; }
 
-        @keyframes float1 {
-          0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
-          50% { transform: translateY(-20px) rotate(10deg); opacity: 1; }
-          100% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
-        }
-        @keyframes float2 {
-          0% { transform: translateY(0) rotate(-5deg); opacity: 0.7; }
-          50% { transform: translateY(-25px) rotate(5deg); opacity: 0.9; }
-          100% { transform: translateY(0) rotate(-5deg); opacity: 0.7; }
-        }
-        @keyframes float3 {
-          0% { transform: translateY(0) rotate(5deg); opacity: 0.6; }
-          50% { transform: translateY(-15px) rotate(-5deg); opacity: 0.8; }
-          100% { transform: translateY(0) rotate(5deg); opacity: 0.6; }
-        }
-        @keyframes float0 {
-          0% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
-          50% { transform: translateY(-18px) rotate(8deg); opacity: 0.9; }
-          100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
-        }
-        ${[0, 1, 2, 3]
-          .map((i) => `.animate-float-${i} { animation: float${i} ${6 + i}s ease-in-out infinite; }`)
-          .join("")}
-      `}</style>
+      @keyframes float1 { 0% {transform:translateY(0) rotate(0deg);opacity:0.8;}50%{transform:translateY(-20px) rotate(10deg);opacity:1;}100%{transform:translateY(0) rotate(0deg);opacity:0.8;} }
+      @keyframes float2 { 0% {transform:translateY(0) rotate(-5deg);opacity:0.7;}50%{transform:translateY(-25px) rotate(5deg);opacity:0.9;}100%{transform:translateY(0) rotate(-5deg);opacity:0.7;} }
+      @keyframes float3 { 0% {transform:translateY(0) rotate(5deg);opacity:0.6;}50%{transform:translateY(-15px) rotate(-5deg);opacity:0.8;}100%{transform:translateY(0) rotate(5deg);opacity:0.6;} }
+      @keyframes float0 { 0% {transform:translateY(0) rotate(0deg);opacity:0.5;}50%{transform:translateY(-18px) rotate(8deg);opacity:0.9;}100%{transform:translateY(0) rotate(0deg);opacity:0.5;} }
+
+      ${[0, 1, 2, 3].map(
+        (i) => `.animate-float-${i}{animation:float${i} ${6 + i}s ease-in-out infinite;}`
+      ).join("")}
+    `}</style>
     </Router>
   );
 }

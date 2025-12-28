@@ -87,6 +87,9 @@ export default function Chat({ profile, patient, onClose }) {
           .from("notifications")
           .update({ read_status: true })
           .in("id", unread.map((u) => u.id));
+
+        // ✅ Dispatch event so Header refreshes bell count immediately
+        window.dispatchEvent(new Event("notifications-read"));
       }
 
       fetchConversations();
@@ -194,7 +197,10 @@ export default function Chat({ profile, patient, onClose }) {
       date.getMonth() === yesterday.getMonth() &&
       date.getFullYear() === yesterday.getFullYear();
 
-    const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const time = date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     if (isToday) return time;
     if (isYesterday) return `Yesterday, ${time}`;
     return date.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${time}`;
@@ -232,11 +238,10 @@ export default function Chat({ profile, patient, onClose }) {
                 setActivePatient(c.user);
                 setShowList(false);
               }}
-              className={`flex items-center p-2 rounded-lg cursor-pointer ${
-                activePatient.id === c.user.id
+              className={`flex items-center p-2 rounded-lg cursor-pointer ${activePatient.id === c.user.id
                   ? "bg-blue-400/40"
                   : "hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
-              }`}
+                }`}
             >
               <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">
                 {c.user.name[0]}
@@ -278,9 +283,8 @@ export default function Chat({ profile, patient, onClose }) {
                 className={`flex ${mine ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${
-                    mine ? "bg-green-500 text-white" : "bg-white/50 dark:bg-gray-700/50"
-                  }`}
+                  className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${mine ? "bg-green-500 text-white" : "bg-white/50 dark:bg-gray-700/50"
+                    }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.message}</p>
                   <span className="block text-xs mt-1 opacity-70 text-right">
@@ -308,13 +312,16 @@ export default function Chat({ profile, patient, onClose }) {
               text-gray-800 dark:text-gray-100
               placeholder-gray-400 dark:placeholder-gray-500
               focus:outline-none focus:ring-2 focus:ring-blue-400
+              focus:ring-offset-1
               transition-colors duration-200
               shadow-sm hover:shadow-md
             "
             onKeyDown={(e) => {
+              // Shift+Enter creates a newline
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                sendChatMessage();
+                // Do not send automatically, allow Enter for newline
+                setNewChatMsg((prev) => prev + "\n");
               }
             }}
           />
