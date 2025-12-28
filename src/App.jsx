@@ -77,7 +77,7 @@ export default function App() {
         const url = "https://ooyuqgbmgqhvpyoonric.supabase.co/storage/v1/object/public/app-updates/FoodPapaDan.apk";
         setLatestApkUrl(url);
 
-        const latestVersion = "1.0.2";
+        const latestVersion = "1.0.3";
         setApkVersion(latestVersion);
 
         const installedVersion = localStorage.getItem("installedApkVersion");
